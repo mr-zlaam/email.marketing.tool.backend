@@ -45,7 +45,7 @@ class GetUserController {
     if (q !== undefined && q.trim() !== "") {
       const searchTerm = `%${q}%`;
       params.searchTerm = searchTerm;
-      conditions.push(or(like(userSchema.firstName, sql.placeholder("searchTerm")), like(userSchema.lastName, sql.placeholder("searchTerm"))));
+      conditions.push(or(like(userSchema.fullName, sql.placeholder("searchTerm")), like(userSchema.username, sql.placeholder("searchTerm"))));
     }
 
     // Build the main query
@@ -53,8 +53,8 @@ class GetUserController {
       .select({
         uid: userSchema.uid,
         email: userSchema.email,
-        firstName: userSchema.firstName,
-        lastName: userSchema.lastName,
+        username: userSchema.username,
+        fullName: userSchema.fullName,
         role: userSchema.role,
         createdAt: userSchema.createdAt,
         updatedAt: userSchema.updatedAt

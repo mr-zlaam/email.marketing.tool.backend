@@ -24,16 +24,16 @@ class UserUpdateMiddleware {
       throwError(reshttp.badRequestCode, reshttp.badRequestMessage);
     }
     const uid = userIdFromBody || userIDFromToken || "no id";
-    const { firstName, lastName } = updateUserInformation;
-    const dataWhichIsGoingToBeUpdated = { firstName, lastName };
+    const { username, fullName } = updateUserInformation;
+    const dataWhichIsGoingToBeUpdated = { username, fullName };
     logger.info("dataWhichIsGoingToBeUpdated", { dataWhichIsGoingToBeUpdated, uid });
     const checkIfUserExist = await this._db
-      .select({ firstName: userSchema.firstName, lastName: userSchema.lastName })
+      .select({ username: userSchema.username, fullName: userSchema.fullName })
       .from(userSchema)
       .where(
         and(
           not(eq(userSchema.uid, uid)),
-          or(eq(userSchema.email, dataWhichIsGoingToBeUpdated.firstName), eq(userSchema.lastName, dataWhichIsGoingToBeUpdated.lastName))
+          or(eq(userSchema.email, dataWhichIsGoingToBeUpdated.username), eq(userSchema.fullName, dataWhichIsGoingToBeUpdated.fullName))
         )
       )
       .limit(1);

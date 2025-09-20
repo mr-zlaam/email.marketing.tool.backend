@@ -5,8 +5,8 @@ export const userSchema = pgTable(
   "users",
   {
     uid: uuid("uid").defaultRandom().notNull().primaryKey(),
-    firstName: varchar("firstName", { length: 50 }).notNull(),
-    lastName: varchar("lastName", { length: 50 }).notNull(),
+    username: varchar("username", { length: 50 }).notNull().unique(),
+    fullName: varchar("fullName", { length: 100 }).notNull(),
     email: varchar("email", { length: 100 }).notNull().unique(),
     password: varchar("password", { length: 5000 }).notNull(),
     role: userRoleEnum().notNull().default("USER"),
@@ -30,8 +30,8 @@ export const userSchema = pgTable(
   (table) => [
     index("user_role_idx").on(table.role),
     index("user_createdAt_idx").on(table.createdAt),
-    index("firstName_lastName_idx").on(table.firstName, table.lastName),
-    index("isVerified_idx").on(table.isVerified)
+    index("user_username_idx").on(table.username),
+    index("user_isVerified_idx").on(table.isVerified)
   ]
 );
 export type TUSER = typeof userSchema.$inferSelect;

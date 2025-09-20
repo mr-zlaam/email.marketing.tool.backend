@@ -14,8 +14,8 @@ import { userRepo } from "../userRepos/user.repo";
 export const userUpdateService = (db: DatabaseClient) => {
   // ** Update user details (username,fullName,phone,companyName(optional), companyURI(optional)) using drizzle orm ** //
   const updateBasicUserInformationService = async (userInformation: TUSER) => {
-    const { firstName, lastName, uid } = userInformation;
-    const dataWhichIsGoingToBeUpdated = { firstName, lastName };
+    const { username, fullName, uid } = userInformation;
+    const dataWhichIsGoingToBeUpdated = { username, fullName };
     const [updatedUser] = await db
       .update(userSchema)
       .set({ ...dataWhichIsGoingToBeUpdated, updatedAt: new Date() })
