@@ -1,0 +1,25 @@
+version: "3.8"
+
+services:
+  app:
+    image: backend_template_with_auth:test # TODO: change to artstay:latest
+    container_name: backend_template_with_auth
+    ports:
+      - "8000:8000"
+    environment:
+      ENV: PRODUCTION
+      PORT: 8000
+      DATABASE_URL: DATABASE_URL
+      SECRET_KEY: SECRET_KEY
+      SMTP_HOST_EMAIL: SMTP_HOST_EMAIL
+      SMTP_SECRET: PASSWORD
+      ADMIN_EMAIL1: ADMIN_EMAIL1
+      ADMIN_EMAIL2: ADMIN_EMAIL2
+      CLOUDINARY_API_SECRET: CLOUDINARY_API_KEY
+      CLOUDINARY_API_KEY: CLOUDINARY_API_SECRET
+      CLOUDINARY_NAME: denanem06
+      CLOUDINARY_URL: CLOUDINARY_URL
+
+    volumes:
+      - ./app:/usr/src/app
+    restart: always

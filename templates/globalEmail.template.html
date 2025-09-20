@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0" />
+    <title>{{companyname}}</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f4f4f4;
+        margin: 0;
+        padding: 0;
+      }
+
+      .container {
+        max-width: 600px;
+        margin: 20px auto;
+        background-color: #ffffff;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .header {
+        text-align: center;
+        padding: 20px 0;
+        border-bottom: 1px solid #eeeeee;
+        background-color: #28282b;
+        border-radius: 8px 8px 0 0;
+      }
+
+      .header img {
+        max-width: 100px;
+        margin-bottom: 10px;
+      }
+
+      .header h1 {
+        font-size: 24px;
+        margin: 0;
+        color: #ffffff;
+      }
+
+      .content {
+        padding: 20px 0;
+        color: #333333;
+        line-height: 1.6;
+      }
+
+      .content h1 {
+        font-size: 1.5rem;
+        color: blue;
+        font-weight: bold;
+      }
+
+      .content h2 {
+        font-size: 20px;
+        color: #6a0dad;
+      }
+
+      .button {
+        text-align: center;
+        margin: 20px 0;
+      }
+
+      .button a {
+        text-decoration: none;
+        background-color: #6a0dad;
+        color: #ffffff;
+        padding: 12px 24px;
+        border-radius: 4px;
+        font-size: 16px;
+        display: inline-block;
+      }
+
+      .footer {
+        font-size: 12px;
+        color: #777777;
+        text-align: center;
+        padding-top: 20px;
+        border-top: 1px solid #eeeeee;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <!-- Header -->
+      <div class="header">
+        <img
+          src="https://cdn-icons-png.freepik.com/256/9946/9946313.png"
+          alt="{{companyname}} Logo" />
+        <h1>{{companyname}}</h1>
+      </div>
+
+      <!-- Content -->
+      <div class="content">
+        <h1>{{header}}</h1>
+        <p>{{senderIntro}}</p>
+        <div>{{message}}</div>
+        <p>Best Regards,</p>
+        <b>{{companyname}}</b>
+      </div>
+
+      <!-- Additional Information -->
+      <div class="content">
+        <i>{{addsOn}}</i>
+      </div>
+
+      <!-- Footer -->
+      <div class="footer">
+        <p>&copy; 2025 {{companyname}}. All rights reserved.</p>
+      </div>
+    </div>
+  </body>
+</html>

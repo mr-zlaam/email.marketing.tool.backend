@@ -1,0 +1,2 @@
+#!/bin/sh
+bun run commit-lint "$1"
