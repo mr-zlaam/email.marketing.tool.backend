@@ -6,7 +6,7 @@
   "description": "",
   "main": "src/server.ts",
   "scripts": {
-    "lint": "concurrently \"bun run type-check\" \"eslint .\" && prettier --write .",
+    "lint": "concurrently \"bun run type-check\" \"eslint .\" && prettier --write . && git add .",
     "type-check": "tsc --noEmit",
     "prebuild": "concurrently \"bun run lint\" \"rimraf ./dist\"",
     "build": "bun run tsc --build",
