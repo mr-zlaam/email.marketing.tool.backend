@@ -2,16 +2,16 @@ import multer from "multer";
 import path from "node:path";
 import { cleanFileName, generateRandomStrings } from "../utils/quickUtil/slugStringGenerator.util";
 
-export const supportedFileTypes = ["pdf"];
+// Allowed file types for email import
+export const supportedFileTypes = ["xlsx", "xls", "csv", "tsv", "txt", "json"];
 const uploadDirectory = path.join(process.cwd(), "public/upload/");
 
 const storage = multer.diskStorage({
-  filename: function (_, file, cb) {
+  filename: (_, file, cb) => {
     const uniqueSuffix = generateRandomStrings(5);
     cb(null, `${uniqueSuffix}-${cleanFileName(file.originalname)}`);
   },
-
-  destination: function (_, __, cb) {
+  destination: (_, __, cb) => {
     cb(null, uploadDirectory);
   }
 });
@@ -24,18 +24,11 @@ const fileFilter = (_: Express.Request, file: Express.Multer.File, cb: multer.Fi
   cb(null, true);
 };
 
-export const upload = multer({
+// Single-file upload middleware
+export const uploadSingleFile = multer({
   storage,
   limits: {
-    fileSize: 20 * 1024 * 1024
+    fileSize: 20 * 1024 * 1024 // 20 MB
   },
   fileFilter
-}).fields([
-  { name: "bussinessRegisterationDocument", maxCount: 1 },
-  { name: "businessLicenseDocument", maxCount: 1 },
-  { name: "ContactPersonAdhaarCardDocment", maxCount: 1 },
-  { name: "artisanIdCardDocument", maxCount: 1 },
-  { name: "bankStatementDocument", maxCount: 1 },
-  { name: "productCatalogueDocument", maxCount: 1 },
-  { name: "certificationsDocument", maxCount: 1 }
-]);
+}).single("file"); // field name is just 'file'

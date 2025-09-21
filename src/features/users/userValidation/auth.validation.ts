@@ -1,18 +1,18 @@
 import { z } from "zod";
 
 export const registerUserSchemaZ = z.object({
-  firstName: z
-    .string({ message: "firstName must be string" })
+  username: z
+    .string({ message: "username must be string" })
     .trim()
-    .min(3, "FirstName required atleast 3 characters")
-    .max(50, "FirstName can only have 50 characters")
-    .regex(/^[A-Za-z\s]+$/, "FirstName can only have spaces and alphabets"),
-  lastName: z
-    .string({ message: "LastName must be string" })
+    .min(3, "username required atleast 3 characters")
+    .max(20, "username must not contain more than 30 characters")
+    .regex(/^[a-z0-9_]+$/, "username can only contain lowercase, underscores and numbers"),
+  fullName: z
+    .string({ message: "fullName must be string" })
     .trim()
-    .min(3, "LastName required atleast 3 characters")
-    .max(50, "LastName can only have 50 characters")
-    .regex(/^[A-Za-z\s]+$/, "LastName can only have spaces and alphabets"),
+    .min(3, "fullName required atleast 3 characters")
+    .max(50, "fullName can only have 50 characters")
+    .regex(/^[A-Za-z\s]+$/, "fullName can only have spaces and alphabets"),
   email: z
     .string({ message: "email must be string" })
     .trim()

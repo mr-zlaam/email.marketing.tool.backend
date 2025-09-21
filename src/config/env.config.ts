@@ -19,6 +19,8 @@ interface IENVIRONMENTCONFIG {
   STRIPE_WEBHOOK_SECRET: string;
   BACKEND_DOMAIN: string;
   FRONTEND_DOMAIN: string;
+  REDDIS_HOST: string;
+  REDDIS_PORT: number;
 }
 export default {
   PORT: process.env.PORT ? parseInt(process.env.PORT) : "Unable to fetch PORT from .env file",
@@ -42,5 +44,7 @@ export default {
     ? process.env.STRIPE_WEBHOOK_SECRET
     : "Unable to fetch STRIPE_WEBHOOK_SECRET from .env file",
   BACKEND_DOMAIN: process.env.BACKEND_DOMAIN ? process.env.BACKEND_DOMAIN : "Unable to fetch BACKEND_DOMAIN from .env file",
-  FRONTEND_DOMAIN: process.env.FRONTEND_DOMAIN ? process.env.FRONTEND_DOMAIN : "Unable to fetch FRONTEND_DOMAIN from .env file"
+  FRONTEND_DOMAIN: process.env.FRONTEND_DOMAIN ? process.env.FRONTEND_DOMAIN : "Unable to fetch FRONTEND_DOMAIN from .env file",
+  REDDIS_HOST: process.env.REDDIS_HOST ? process.env.REDDIS_HOST : "Unable to fetch REDDIS_HOST from .env file",
+  REDDIS_PORT: process.env.REDDIS_PORT ? parseInt(process.env.REDDIS_PORT) : "Unable to fetch REDDIS_PORT from .env file"
 } as IENVIRONMENTCONFIG;
