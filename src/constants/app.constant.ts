@@ -54,5 +54,6 @@ export default {
         callback(throwError(403, "Origin not allowed"));
       }
     }
-  } as CorsOptions
+  } as CorsOptions,
+  EMAIL_SEND_QUENE: "emailSendQueue"
 };

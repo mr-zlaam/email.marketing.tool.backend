@@ -1,0 +1,1 @@
+ALTER TABLE "emailBatch" ALTER COLUMN "batchId" SET DEFAULT gen_random_uuid();

@@ -4,7 +4,7 @@ import { currentEmailBatchStatusEnum } from "../shared/enums";
 
 export const emailBatchSchema = pgTable("emailBatch", {
   id: serial("id").notNull().primaryKey(),
-  batchId: uuid("batchId").notNull().unique(),
+  batchId: uuid("batchId").notNull().unique().defaultRandom(),
   createdBy: varchar("createdBy", { length: 100 })
     .notNull()
     .references(() => userSchema.username),

@@ -9,6 +9,14 @@ import getUserController from "../userControllers/getUser.controller";
 export const userRouter: Router = Router();
 // ** Register User
 userRouter.route("/registerUser").post(validator(registerUserSchemaZ), authController(database.db).registerUser);
+userRouter
+  .route("/adminCreatesTheUser")
+  .post(
+    validator(registerUserSchemaZ),
+    authMiddleware(database.db).checkToken,
+    authMiddleware(database.db).checkIfUserIsAdmin,
+    authController(database.db).adminCreatesTheUser
+  );
 // ** Verify User
 userRouter.route("/verifyUser").patch(authController(database.db).verifyUser);
 // ** Resend OTP

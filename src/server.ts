@@ -1,4 +1,5 @@
 import { app } from "./app";
+import "./workers/email.worker";
 import envConfig from "./config/env.config";
 import { database } from "./db/db";
 import logger from "./utils/globalUtil/logger.util";

@@ -3,7 +3,7 @@ import path from "path";
 import XLSX from "xlsx";
 import { parse } from "fast-csv";
 import { Worker } from "worker_threads";
-import { isEmail } from "./isEmail.util";
+import { isEmail } from "../../utils/globalUtil/isEmail.util";
 
 interface WorkerData {
   cells: string[];

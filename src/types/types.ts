@@ -6,3 +6,14 @@ export interface IPAGINATION {
   hasPreviousPage: boolean;
   totalPage: number;
 }
+
+export interface IEMAILBATCHBODY {
+  scheduleTime: "NOW" | Date;
+  delayBetweenEmails: string;
+  emailsPerBatch: string;
+  batchName: string;
+}
+
+export interface TEMAILJOB {
+  email: string;
+}
