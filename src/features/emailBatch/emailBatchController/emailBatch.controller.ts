@@ -8,11 +8,13 @@ import { throwError } from "../../../utils/globalUtil/throwError.util";
 import path from "node:path";
 import { userRepo } from "../../users/userRepos/user.repo";
 import { emailBatchSchema } from "../../../db/schemas/emailBatchSchema";
+import { emailSchema } from "../../../db/schemas/emailSchema";
 import { emailQueue } from "../../../quenes/emailQuene.config";
 import appConstant from "../../../constants/app.constant";
 import { httpResponse } from "../../../utils/globalUtil/apiResponse.util";
 import reshttp from "reshttp";
 import fs from "node:fs";
+import { eq } from "drizzle-orm";
 class EmailBatchController {
   private readonly _db: DatabaseClient;
 
@@ -32,16 +34,32 @@ class EmailBatchController {
     const extractor = new EmailExtractor();
     const emails = await extractor.fromFile(filePath);
 
+    if (emails.length === 0) {
+      return throwError(400, "No valid emails found in the uploaded file");
+    }
+
+    // Create the batch record first - ONLY store emails, DO NOT queue anything yet
     const [insertBatch] = await this._db
       .insert(emailBatchSchema)
       .values({
         batchName,
         createdBy: user.username,
         totalEmails: emails.length,
-        status: "pending",
-        composedEmail
+        status: "pending", // Stays pending until user starts processing
+        composedEmail,
+        currentBatchSize: 0,
+        emailsQueued: 0
       })
       .returning();
+
+    // Store all emails in the database for future processing
+    const emailRecords = emails.map((email) => ({
+      batchId: insertBatch.id,
+      email,
+      status: "pending" as const
+    }));
+
+    await this._db.insert(emailSchema).values(emailRecords);
 
     // --- Schedule time handling ---
     let startTime: number;
@@ -61,20 +79,56 @@ class EmailBatchController {
       }
     }
 
-    const delayMs = parseInt(delayBetweenEmails, 10) * 1000; // user sends seconds, convert to ms
+    const delayMs = parseInt(delayBetweenEmails, 10) * 1000;
     const batchCount = parseInt(emailsPerBatch, 10);
+
+    // Queue only the first batch of emails for immediate processing
     const emailsToQueue = emails.slice(0, batchCount);
 
     emailsToQueue.forEach((email, index) => {
       const totalDelay = Math.max(startTime - Date.now(), 0) + index * delayMs;
-      void emailQueue.add(appConstant.EMAIL_SEND_QUENE, { email, composedEmail }, { delay: totalDelay, removeOnComplete: true });
+      void emailQueue.add(
+        appConstant.EMAIL_SEND_QUENE,
+        {
+          email,
+          composedEmail,
+          batchId: insertBatch.batchId,
+          emailBatchDatabaseId: insertBatch.id
+        },
+        {
+          delay: totalDelay,
+          removeOnComplete: true
+        }
+      );
     });
-    console.info("emails added to the queue: here is file path", { filePath });
-    console.log("before deleting", fs.existsSync(filePath)); // before unlink
-    fs.unlinkSync(filePath);
-    console.log("after deleteing", fs.existsSync(filePath)); // after unlink
 
-    httpResponse(req, res, reshttp.createdCode, "Email batch created successfully", insertBatch);
+    // Update batch to show it's now processing
+    await this._db
+      .update(emailBatchSchema)
+      .set({
+        status: "processing",
+        currentBatchSize: batchCount,
+        emailsQueued: emailsToQueue.length, // Only first batch is queued
+        lastBatchStartedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(emailBatchSchema.id, insertBatch.id));
+
+    logger.info(
+      `Created batch ${insertBatch.batchName} with ${emails.length} total emails, queued first ${emailsToQueue.length} emails for processing`
+    );
+
+    // Clean up uploaded file
+    fs.unlinkSync(filePath);
+
+    httpResponse(req, res, reshttp.createdCode, "Email batch created and processing started", {
+      ...insertBatch,
+      status: "processing",
+      currentBatchSize: batchCount,
+      emailsQueued: emailsToQueue.length,
+      processingBatch: batchCount,
+      totalEmailsInFile: emails.length
+    });
   });
 }
 

@@ -13,7 +13,12 @@ export const emailBatchSchema = pgTable("emailBatch", {
   totalEmails: integer("totalEmails").default(0),
   emailsSent: integer("emailsSent").default(0),
   emailsFailed: integer("emailsFailed").default(0),
-  status: currentEmailBatchStatusEnum().default("pending"), // pending | sending | completed
+  status: currentEmailBatchStatusEnum().default("pending"), // pending | processing | completed | failed
+
+  // Current batch tracking
+  currentBatchSize: integer("currentBatchSize").default(0), // How many emails in current processing batch
+  emailsQueued: integer("emailsQueued").default(0), // How many emails currently queued for processing
+  lastBatchStartedAt: timestamp("lastBatchStartedAt", { mode: "date", precision: 3 }),
 
   createdAt: timestamp("createdAt", { mode: "date", precision: 3 }).notNull().defaultNow(),
   updatedAt: timestamp("updatedAt", { mode: "date", precision: 3 }).notNull().defaultNow()

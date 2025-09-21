@@ -18,4 +18,13 @@ export interface IEMAILBATCHBODY {
 export interface TEMAILJOB {
   email: string;
   composedEmail: string;
+  batchId?: string;
+  emailBatchDatabaseId?: number;
+}
+
+export interface IRESUMEBATCHBODY {
+  batchId: string;
+  scheduleTime: "NOW" | Date;
+  delayBetweenEmails: string;
+  emailsPerBatch: string;
 }

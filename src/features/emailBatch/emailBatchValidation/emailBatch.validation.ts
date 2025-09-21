@@ -13,3 +13,18 @@ export const emailBatchValidationZ = z.object({
   scheduleTime: z.string().min(3, "Schedule time must be at least 3 characters").max(50, "Schedule time must be less than 50 characters"),
   composedEmail: z.string().min(10, "Composed email cannot be empty").max(10000, "Composed email must be less than 10000 characters")
 });
+
+export const resumeBatchValidationZ = z.object({
+  batchId: z.string({ message: "Batch ID is required" }).uuid("Invalid batch ID format"),
+  delayBetweenEmails: z.string({ message: "Delay between emails is required" }),
+  emailsPerBatch: z.string({ message: "Emails per batch is required" }).min(1, "Emails per batch must be at least 1"),
+  scheduleTime: z.string().min(3, "Schedule time must be at least 3 characters").max(50, "Schedule time must be less than 50 characters")
+});
+
+export const getBatchByIdValidationZ = z.object({
+  batchId: z.string({ message: "Batch ID is required" }).uuid("Invalid batch ID format")
+});
+
+export const deleteBatchValidationZ = z.object({
+  batchId: z.string({ message: "Batch ID is required" }).uuid("Invalid batch ID format")
+});
