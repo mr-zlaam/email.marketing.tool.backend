@@ -13,9 +13,11 @@ import { setTokensAndCookies } from "../../../utils/globalUtil/setCookies.util";
 
 class AuthController {
   private readonly _db: DatabaseClient;
+  isAdminCreating?: boolean;
 
   constructor(db: DatabaseClient) {
     this._db = db;
+    this.isAdminCreating = true;
   }
 
   public registerUser = asyncHandler(async (req, res) => {
@@ -111,7 +113,7 @@ class AuthController {
   });
 
   public adminCreatesTheUser = asyncHandler(async (req, res) => {
-    const { handleVerifiedUser, handleNewUser, checkExistingUser } = usrAuthService(this._db, true);
+    const { handleVerifiedUser, handleNewUser, checkExistingUser } = usrAuthService(this._db, this.isAdminCreating);
 
     const userBody = req.body as TUSER;
 
@@ -132,7 +134,11 @@ class AuthController {
       isAdmin(userBody.email) ? reshttp.iamATeapotCode : reshttp.okCode,
       isAdmin(userBody.email) ? reshttp.iamATeapotMessage : reshttp.okMessage,
       {
-        message: isAdmin(userBody.email) ? "Admin has been created successfully" : "Please check your email account for verification"
+        message: isAdmin(userBody.email)
+          ? "Admin has been created successfully"
+          : this.isAdminCreating
+            ? "You've created the user successfully"
+            : "Please check your email account for verification"
       }
     );
   });
