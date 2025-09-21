@@ -110,6 +110,33 @@ class AuthController {
     httpResponse(req, res, reshttp.okCode, reshttp.okMessage, { message: "User has been logged in", accessToken, refreshToken });
   });
 
+  public adminCreatesTheUser = asyncHandler(async (req, res) => {
+    const { handleVerifiedUser, handleNewUser, checkExistingUser } = usrAuthService(this._db, true);
+
+    const userBody = req.body as TUSER;
+
+    const existingUser = await checkExistingUser(userBody);
+
+    if (existingUser && existingUser.length > 0) {
+      const user = existingUser[0];
+      if (user.isVerified) {
+        handleVerifiedUser();
+      }
+    }
+
+    await handleNewUser(userBody, res);
+
+    httpResponse(
+      req,
+      res,
+      isAdmin(userBody.email) ? reshttp.iamATeapotCode : reshttp.okCode,
+      isAdmin(userBody.email) ? reshttp.iamATeapotMessage : reshttp.okMessage,
+      {
+        message: isAdmin(userBody.email) ? "Admin has been created successfully" : "Please check your email account for verification"
+      }
+    );
+  });
+
   // ** Generate refresh AccessToken
 
   public refreshAccessToken = asyncHandler(async (req, res) => {

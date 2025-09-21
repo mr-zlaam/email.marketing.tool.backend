@@ -8,11 +8,10 @@ import { throwError } from "../../../utils/globalUtil/throwError.util";
 import logger from "../../../utils/globalUtil/logger.util";
 import { generateVerificationOtpToken } from "../../../utils/globalUtil/verificationTokenGenerator.util";
 import { passwordHasher, verifyPassword } from "../../../utils/globalUtil/passwordHasher.util";
-import { sendVerificationEmail } from "../../../utils/quickUtil/sendVerificationEmail.util";
 import { setTokensAndCookies } from "../../../utils/globalUtil/setCookies.util";
 import { isAdmin } from "../userUtils/checkIfUserIsAdmin.util";
 import { userRepo } from "../userRepos/user.repo";
-export const usrAuthService = (db: DatabaseClient) => {
+export const usrAuthService = (db: DatabaseClient, isAdminCreating?: boolean) => {
   const checkExistingUser = async ({ email }: TUSER) => {
     const existingUser = await db
       .select({ uid: userSchema.uid, isVerified: userSchema.isVerified, email: userSchema.email })
@@ -31,22 +30,14 @@ export const usrAuthService = (db: DatabaseClient) => {
   };
 
   const handleNewUser = async (user: TUSER, res: Response) => {
-    const { OTP_TOKEN } = generateVerificationOtpToken();
     const hashedPassword = (await passwordHasher(user.password, res)) as string;
-    await db
-      .insert(userSchema)
-      .values({
-        ...user,
-        OTP_TOKEN: OTP_TOKEN,
-        password: hashedPassword,
-        role: isAdmin(user.email) ? "ADMIN" : user.role,
-        isVerified: isAdmin(user.email) ? true : false
-      })
-      .then(async () => (isAdmin(user.email) ? null : await sendVerificationEmail(user.email, OTP_TOKEN)))
-      .catch((err: unknown) => {
-        logger.error("Something went wrong while creating new user", { err });
-        throwError(reshttp.internalServerErrorCode, reshttp.internalServerErrorMessage);
-      });
+    await db.insert(userSchema).values({
+      ...user,
+      OTP_TOKEN: null,
+      password: hashedPassword,
+      role: isAdmin(user.email) ? "ADMIN" : user.role,
+      isVerified: isAdmin(user.email) ? true : isAdminCreating ? true : false
+    });
   };
 
   const verifyUser = async (OTP_TOKEN: string, res: Response) => {
@@ -76,15 +67,7 @@ export const usrAuthService = (db: DatabaseClient) => {
       logger.error("Account already verified. This route is at risk ");
       throwError(reshttp.conflictCode, "Account already verified");
     }
-    await db
-      .update(userSchema)
-      .set({ OTP_TOKEN: OTP_TOKEN })
-      .where(eq(userSchema.email, email))
-      .then(async () => await sendVerificationEmail(email, OTP_TOKEN))
-      .catch((err: unknown) => {
-        logger.error("Something went wrong while creating new user", { err });
-        throwError(reshttp.internalServerErrorCode, reshttp.internalServerErrorMessage);
-      });
+    await db.update(userSchema).set({ OTP_TOKEN: OTP_TOKEN }).where(eq(userSchema.email, email));
   };
   // ** login user
 

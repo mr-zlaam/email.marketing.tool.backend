@@ -4,3 +4,7 @@ import { pgEnum } from "drizzle-orm/pg-core";
 export const userRoleEnum = pgEnum("role", ["ADMIN", "USER"]);
 
 export type TCURRENTROLE = (typeof userRoleEnum.enumValues)[number];
+export const currentEmailBatchStatusEnum = pgEnum("batchStatus", ["pending", "completed", "failed"]);
+export type TCURRENTEMAILBATCHSTATUS = (typeof userRoleEnum.enumValues)[number];
+export const currentEmailEnum = pgEnum("batchStatus", ["pending", "completed", "failed"]);
+export type TCURRENTEMAIL = (typeof userRoleEnum.enumValues)[number];
