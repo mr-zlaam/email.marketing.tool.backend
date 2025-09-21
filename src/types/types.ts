@@ -12,8 +12,10 @@ export interface IEMAILBATCHBODY {
   delayBetweenEmails: string;
   emailsPerBatch: string;
   batchName: string;
+  composedEmail: string;
 }
 
 export interface TEMAILJOB {
   email: string;
+  composedEmail: string;
 }

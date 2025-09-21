@@ -1,0 +1,1 @@
+ALTER TABLE "emailBatch" ADD COLUMN "emailContent" text DEFAULT '' NOT NULL;

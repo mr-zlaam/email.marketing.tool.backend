@@ -43,6 +43,34 @@
       "when": 1758422438444,
       "tag": "0005_freezing_viper",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1758466518449,
+      "tag": "0006_tough_guardian",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1758466588285,
+      "tag": "0007_nasty_dormammu",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1758467128496,
+      "tag": "0008_gifted_harry_osborn",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1758467907294,
+      "tag": "0009_colossal_stephen_strange",
+      "breakpoints": true
     }
   ]
 }

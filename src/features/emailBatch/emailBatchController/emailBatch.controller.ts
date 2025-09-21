@@ -22,7 +22,7 @@ class EmailBatchController {
 
   public createEmailBatch = asyncHandler(async (req: _Request, res) => {
     const user = await userRepo(this._db).getUserByuid(req.userFromToken?.uid || "");
-    const { batchName, delayBetweenEmails, emailsPerBatch, scheduleTime } = req.body as IEMAILBATCHBODY;
+    const { batchName, delayBetweenEmails, emailsPerBatch, scheduleTime, composedEmail } = req.body as IEMAILBATCHBODY;
     const filePath = path.resolve(req.file?.path || "");
     logger.info("current uploaded filePath ->", filePath || undefined);
     if (!filePath) {
@@ -38,7 +38,8 @@ class EmailBatchController {
         batchName,
         createdBy: user.username,
         totalEmails: emails.length,
-        status: "pending"
+        status: "pending",
+        composedEmail
       })
       .returning();
 
@@ -66,7 +67,7 @@ class EmailBatchController {
 
     emailsToQueue.forEach((email, index) => {
       const totalDelay = Math.max(startTime - Date.now(), 0) + index * delayMs;
-      void emailQueue.add(appConstant.EMAIL_SEND_QUENE, { email }, { delay: totalDelay, removeOnComplete: true });
+      void emailQueue.add(appConstant.EMAIL_SEND_QUENE, { email, composedEmail }, { delay: totalDelay, removeOnComplete: true });
     });
     console.info("emails added to the queue: here is file path", { filePath });
     console.log("before deleting", fs.existsSync(filePath)); // before unlink

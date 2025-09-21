@@ -1,4 +1,4 @@
-import { serial, pgTable, timestamp, uuid, varchar, integer } from "drizzle-orm/pg-core";
+import { serial, pgTable, timestamp, uuid, varchar, integer, text } from "drizzle-orm/pg-core";
 import { userSchema } from "../userSchema";
 import { currentEmailBatchStatusEnum } from "../shared/enums";
 
@@ -9,7 +9,7 @@ export const emailBatchSchema = pgTable("emailBatch", {
     .notNull()
     .references(() => userSchema.username),
   batchName: varchar("batchName", { length: 100 }).notNull(),
-
+  composedEmail: text("composedEmail").notNull().default(""),
   totalEmails: integer("totalEmails").default(0),
   emailsSent: integer("emailsSent").default(0),
   emailsFailed: integer("emailsFailed").default(0),
