@@ -1,21 +1,19 @@
 import fs from "node:fs";
 import path from "node:path";
 import reshttp from "reshttp";
-import type { MailDataRequired } from "@sendgrid/mail";
-import sgMail from "@sendgrid/mail";
-
 import envConfig from "../config/env.config";
 import appConstant from "../constants/app.constant";
 import { replaceAllPlaceholders } from "../utils/quickUtil/replaceAllPlaceholders.util";
 import { generateRandomStrings } from "../utils/quickUtil/slugStringGenerator.util";
 import logger from "../utils/globalUtil/logger.util";
 import { throwError } from "../utils/globalUtil/throwError.util";
+import { Resend } from "resend";
 
-// configure SendGrid API key
-if (!envConfig.SENDGRID_API_KEY) {
-  throw new Error("SENDGRID_API_KEY is missing from environment variables");
+// configure Resend API key
+if (!envConfig.RESEND_API_KEY) {
+  throw new Error("RESEND_API_KEY is missing from environment variables");
 }
-sgMail.setApiKey(envConfig.SENDGRID_API_KEY);
+const resend = new Resend(envConfig.RESEND_API_KEY);
 
 export async function gloabalMailMessage(
   to: string,
@@ -40,7 +38,7 @@ export async function gloabalMailMessage(
 
   const randomStr = generateRandomStrings(10);
 
-  const mailOptions: MailDataRequired = {
+  const mailOptions = {
     from: envConfig.HOST_EMAIL,
     to,
     subject: subject ?? appConstant.COMPANY_NAME,
@@ -50,13 +48,19 @@ export async function gloabalMailMessage(
       Precedence: "bulk",
       "Auto-Submitted": "auto-generated",
       "Message-ID": `<${randomStr}.dev>`
-    },
-    replyTo: "support@backend_template_with_auth.com"
+    }
   };
 
   try {
-    await sgMail.send(mailOptions);
-    logger.info(`Email sent successfully to ${to}`);
+    const { data, error } = await resend.emails.send(mailOptions);
+
+    if (error) {
+      logger.error(`Error sending email: ${error.message}`);
+      throwError(reshttp.internalServerErrorCode, reshttp.internalServerErrorMessage);
+      return;
+    }
+
+    logger.info(`Email sent successfully to ${to}. Email ID: ${data?.id}`);
   } catch (error) {
     if (error instanceof Error) {
       logger.error(`Error sending email: ${error.message}`);

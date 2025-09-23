@@ -9,6 +9,7 @@ export interface IPAGINATION {
 
 export interface IEMAILBATCHBODY {
   scheduleTime: "NOW" | Date;
+  subject: string;
   delayBetweenEmails: string;
   emailsPerBatch: string;
   batchName: string;
@@ -20,6 +21,7 @@ export interface TEMAILJOB {
   composedEmail: string;
   batchId?: string;
   emailBatchDatabaseId?: number;
+  subject: string;
 }
 
 export interface IRESUMEBATCHBODY {

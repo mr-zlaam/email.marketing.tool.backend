@@ -1,0 +1,1 @@
+ALTER TABLE "emailBatch" ADD COLUMN "subject" varchar(100) NOT NULL;

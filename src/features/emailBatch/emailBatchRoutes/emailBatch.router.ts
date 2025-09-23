@@ -2,7 +2,7 @@ import { Router } from "express";
 import { validator } from "../../../middlewares/validation.middleware";
 import { database } from "../../../db/db";
 import { emailBatchValidationZ, resumeBatchValidationZ } from "../emailBatchValidation/emailBatch.validation";
-import { emailBatchController } from "../emailBatchController/emailBatch.controller";
+import { emailBatchController } from "../emailBatchController/createEmailBatch.controller";
 import { resumeBatchController } from "../emailBatchController/resumeBatch.controller";
 import { getAllEmailBatchController } from "../emailBatchController/getAllEmailBatch.controller";
 import { deleteBatchController } from "../emailBatchController/deleteBatch.controller";

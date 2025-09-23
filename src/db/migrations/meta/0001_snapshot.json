@@ -1,6 +1,6 @@
 {
-  "id": "4745eff8-766c-4c34-bbdb-c1ef511515f2",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "eb28f703-838c-44db-b9b1-8bb22917eef8",
+  "prevId": "4745eff8-766c-4c34-bbdb-c1ef511515f2",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -29,6 +29,12 @@
         },
         "batchName": {
           "name": "batchName",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subject": {
+          "name": "subject",
           "type": "varchar(100)",
           "primaryKey": false,
           "notNull": true

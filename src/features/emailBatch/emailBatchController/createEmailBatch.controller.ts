@@ -24,7 +24,7 @@ class EmailBatchController {
 
   public createEmailBatch = asyncHandler(async (req: _Request, res) => {
     const user = await userRepo(this._db).getUserByuid(req.userFromToken?.uid || "");
-    const { batchName, delayBetweenEmails, emailsPerBatch, scheduleTime, composedEmail } = req.body as IEMAILBATCHBODY;
+    const { batchName, delayBetweenEmails, emailsPerBatch, scheduleTime, composedEmail, subject } = req.body as IEMAILBATCHBODY;
     const filePath = path.resolve(req.file?.path || "");
     logger.info("current uploaded filePath ->", filePath || undefined);
     if (!filePath) {
@@ -45,7 +45,8 @@ class EmailBatchController {
         batchName,
         createdBy: user.username,
         totalEmails: emails.length,
-        status: "pending", // Stays pending until user starts processing
+        status: "pending",
+        subject,
         composedEmail,
         currentBatchSize: 0,
         emailsQueued: 0
@@ -93,7 +94,8 @@ class EmailBatchController {
           email,
           composedEmail,
           batchId: insertBatch.batchId,
-          emailBatchDatabaseId: insertBatch.id
+          emailBatchDatabaseId: insertBatch.id,
+          subject
         },
         {
           delay: totalDelay,

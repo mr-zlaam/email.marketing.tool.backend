@@ -9,6 +9,7 @@ export const emailBatchSchema = pgTable("emailBatch", {
     .notNull()
     .references(() => userSchema.username),
   batchName: varchar("batchName", { length: 100 }).notNull(),
+  subject: varchar("subject", { length: 100 }).notNull(),
   composedEmail: text("composedEmail").notNull().default(""),
   totalEmails: integer("totalEmails").default(0),
   emailsSent: integer("emailsSent").default(0),

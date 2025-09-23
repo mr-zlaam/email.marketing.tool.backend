@@ -84,7 +84,8 @@ class ResumeBatchController {
           email: emailRecord.email,
           composedEmail: existingBatch.composedEmail,
           batchId: existingBatch.batchId,
-          emailBatchDatabaseId: existingBatch.id
+          emailBatchDatabaseId: existingBatch.id,
+          subject: existingBatch.subject
         },
         {
           delay: totalDelay,

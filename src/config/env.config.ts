@@ -21,6 +21,7 @@ interface IENVIRONMENTCONFIG {
   FRONTEND_DOMAIN: string;
   REDDIS_HOST: string;
   REDDIS_PORT: number;
+  RESEND_API_KEY: string;
 }
 export default {
   PORT: process.env.PORT ? parseInt(process.env.PORT) : "Unable to fetch PORT from .env file",
@@ -46,5 +47,6 @@ export default {
   BACKEND_DOMAIN: process.env.BACKEND_DOMAIN ? process.env.BACKEND_DOMAIN : "Unable to fetch BACKEND_DOMAIN from .env file",
   FRONTEND_DOMAIN: process.env.FRONTEND_DOMAIN ? process.env.FRONTEND_DOMAIN : "Unable to fetch FRONTEND_DOMAIN from .env file",
   REDDIS_HOST: process.env.REDDIS_HOST ? process.env.REDDIS_HOST : "Unable to fetch REDDIS_HOST from .env file",
-  REDDIS_PORT: process.env.REDDIS_PORT ? parseInt(process.env.REDDIS_PORT) : "Unable to fetch REDDIS_PORT from .env file"
+  REDDIS_PORT: process.env.REDDIS_PORT ? parseInt(process.env.REDDIS_PORT) : "Unable to fetch REDDIS_PORT from .env file",
+  RESEND_API_KEY: process.env.RESEND_API_KEY ? process.env.RESEND_API_KEY : "Unable to fetch RESEND_API_KEY from .env file"
 } as IENVIRONMENTCONFIG;
