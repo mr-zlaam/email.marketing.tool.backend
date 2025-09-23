@@ -1,9 +1,220 @@
 {
-  "id": "370f03bc-6b3d-4392-8dcf-ced4037f2a25",
+  "id": "4e5fe313-9d27-46e4-aa84-c7701f528c21",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
+    "public.emailBatch": {
+      "name": "emailBatch",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "batchId": {
+          "name": "batchId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "createdBy": {
+          "name": "createdBy",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "batchName": {
+          "name": "batchName",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "composedEmail": {
+          "name": "composedEmail",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "totalEmails": {
+          "name": "totalEmails",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "emailsSent": {
+          "name": "emailsSent",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "emailsFailed": {
+          "name": "emailsFailed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "status": {
+          "name": "status",
+          "type": "batchStatus",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'pending'"
+        },
+        "currentBatchSize": {
+          "name": "currentBatchSize",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "emailsQueued": {
+          "name": "emailsQueued",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "lastBatchStartedAt": {
+          "name": "lastBatchStartedAt",
+          "type": "timestamp (3)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp (3)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp (3)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "emailBatch_createdBy_users_username_fk": {
+          "name": "emailBatch_createdBy_users_username_fk",
+          "tableFrom": "emailBatch",
+          "tableTo": "users",
+          "columnsFrom": [
+            "createdBy"
+          ],
+          "columnsTo": [
+            "username"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "emailBatch_batchId_unique": {
+          "name": "emailBatch_batchId_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "batchId"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.emails": {
+      "name": "emails",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "batchId": {
+          "name": "batchId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "currentEmailStatus",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'pending'"
+        },
+        "failedReason": {
+          "name": "failedReason",
+          "type": "varchar(500)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "''"
+        },
+        "attemptCount": {
+          "name": "attemptCount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "lastAttemptAt": {
+          "name": "lastAttemptAt",
+          "type": "timestamp (3)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp (3)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "emails_batchId_emailBatch_id_fk": {
+          "name": "emails_batchId_emailBatch_id_fk",
+          "tableFrom": "emails",
+          "tableTo": "emailBatch",
+          "columnsFrom": [
+            "batchId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.users": {
       "name": "users",
       "schema": "",
@@ -15,15 +226,15 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "firstName": {
-          "name": "firstName",
+        "username": {
+          "name": "username",
           "type": "varchar(50)",
           "primaryKey": false,
           "notNull": true
         },
-        "lastName": {
-          "name": "lastName",
-          "type": "varchar(50)",
+        "fullName": {
+          "name": "fullName",
+          "type": "varchar(100)",
           "primaryKey": false,
           "notNull": true
         },
@@ -35,7 +246,7 @@
         },
         "password": {
           "name": "password",
-          "type": "varchar(18)",
+          "type": "varchar(5000)",
           "primaryKey": false,
           "notNull": true
         },
@@ -44,7 +255,8 @@
           "type": "role",
           "typeSchema": "public",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "'USER'"
         },
         "isVerified": {
           "name": "isVerified",
@@ -112,17 +324,11 @@
           "method": "btree",
           "with": {}
         },
-        "firstName_lastName_idx": {
-          "name": "firstName_lastName_idx",
+        "user_username_idx": {
+          "name": "user_username_idx",
           "columns": [
             {
-              "expression": "firstName",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "lastName",
+              "expression": "username",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -133,8 +339,8 @@
           "method": "btree",
           "with": {}
         },
-        "isVerified_idx": {
-          "name": "isVerified_idx",
+        "user_isVerified_idx": {
+          "name": "user_isVerified_idx",
           "columns": [
             {
               "expression": "isVerified",
@@ -152,15 +358,26 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
+        "users_username_unique": {
+          "name": "users_username_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "username"
+          ]
+        },
         "users_email_unique": {
           "name": "users_email_unique",
           "nullsNotDistinct": false,
-          "columns": ["email"]
+          "columns": [
+            "email"
+          ]
         },
         "users_OTP_TOKEN_unique": {
           "name": "users_OTP_TOKEN_unique",
           "nullsNotDistinct": false,
-          "columns": ["OTP_TOKEN"]
+          "columns": [
+            "OTP_TOKEN"
+          ]
         }
       },
       "policies": {},
@@ -223,10 +440,32 @@
     }
   },
   "enums": {
+    "public.batchStatus": {
+      "name": "batchStatus",
+      "schema": "public",
+      "values": [
+        "pending",
+        "processing",
+        "completed",
+        "failed"
+      ]
+    },
+    "public.currentEmailStatus": {
+      "name": "currentEmailStatus",
+      "schema": "public",
+      "values": [
+        "pending",
+        "completed",
+        "failed"
+      ]
+    },
     "public.role": {
       "name": "role",
       "schema": "public",
-      "values": ["ADMIN", "USER"]
+      "values": [
+        "ADMIN",
+        "USER"
+      ]
     }
   },
   "schemas": {},
