@@ -110,12 +110,8 @@
           "name": "emailBatch_createdBy_users_username_fk",
           "tableFrom": "emailBatch",
           "tableTo": "users",
-          "columnsFrom": [
-            "createdBy"
-          ],
-          "columnsTo": [
-            "username"
-          ],
+          "columnsFrom": ["createdBy"],
+          "columnsTo": ["username"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -125,9 +121,7 @@
         "emailBatch_batchId_unique": {
           "name": "emailBatch_batchId_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "batchId"
-          ]
+          "columns": ["batchId"]
         }
       },
       "policies": {},
@@ -199,12 +193,8 @@
           "name": "emails_batchId_emailBatch_id_fk",
           "tableFrom": "emails",
           "tableTo": "emailBatch",
-          "columnsFrom": [
-            "batchId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["batchId"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -361,23 +351,17 @@
         "users_username_unique": {
           "name": "users_username_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "username"
-          ]
+          "columns": ["username"]
         },
         "users_email_unique": {
           "name": "users_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         },
         "users_OTP_TOKEN_unique": {
           "name": "users_OTP_TOKEN_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "OTP_TOKEN"
-          ]
+          "columns": ["OTP_TOKEN"]
         }
       },
       "policies": {},
@@ -443,29 +427,17 @@
     "public.batchStatus": {
       "name": "batchStatus",
       "schema": "public",
-      "values": [
-        "pending",
-        "processing",
-        "completed",
-        "failed"
-      ]
+      "values": ["pending", "processing", "completed", "failed"]
     },
     "public.currentEmailStatus": {
       "name": "currentEmailStatus",
       "schema": "public",
-      "values": [
-        "pending",
-        "completed",
-        "failed"
-      ]
+      "values": ["pending", "completed", "failed"]
     },
     "public.role": {
       "name": "role",
       "schema": "public",
-      "values": [
-        "ADMIN",
-        "USER"
-      ]
+      "values": ["ADMIN", "USER"]
     }
   },
   "schemas": {},
