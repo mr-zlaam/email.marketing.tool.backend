@@ -1,3 +1,5 @@
+import type { DatabaseClient } from "../db/db";
+
 export interface IPAGINATION {
   currentPage: number;
   pageSize: number;
@@ -22,6 +24,11 @@ export interface TEMAILJOB {
   batchId?: string;
   emailBatchDatabaseId?: number;
   subject: string;
+  db?: DatabaseClient;
+  batchName: string;
+  delayBetweenEmails?: string;
+  emailsPerBatch?: string;
+  scheduleTime?: "NOW" | Date;
 }
 
 export interface IRESUMEBATCHBODY {

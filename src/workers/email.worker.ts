@@ -1,71 +1,86 @@
-import { database } from "../db/db";
-import { emailSchema } from "../db/schemas/emailSchema";
-import { emailBatchSchema } from "../db/schemas/emailBatchSchema";
-import { eq, and, sql } from "drizzle-orm";
+import { type Job, Worker } from "bullmq";
+import IORedis from "ioredis";
+import { eq } from "drizzle-orm";
+import type { TEMAILJOB } from "../types/types";
+import appConstant from "../constants/app.constant";
 import { gloabalMailMessage } from "../services/globalEmail.service";
-import logger from "../utils/globalUtil/logger.util";
+import { redisConfig } from "../config/connections.config";
+import { emailBatchSchema } from "../db/schemas/emailBatchSchema";
+import { database } from "../db/db";
+import { emailQueue } from "../quenes/emailQuene.config";
 
-type EmailJob = {
-  email: string;
-  composedEmail: string;
-  subject: string;
-  batchId: string;
-  emailBatchDatabaseId: string;
+const connection = new IORedis(redisConfig);
+const db = database.db;
+
+type BatchConfig = {
+  delay: number; // ms
+  batchSize: number;
+  processedCount: number;
+  totalEmails: number;
 };
 
-export async function processEmailJobs(jobs: EmailJob[]) {
-  for (const job of jobs) {
-    try {
-      console.info(`Processing email: ${job.email} for batch: ${job.batchId}`);
+const batchConfigCache = new Map<string, BatchConfig>();
 
-      await gloabalMailMessage(job.email, job.composedEmail, job.subject);
+export const emailWorker = new Worker<TEMAILJOB>(
+  appConstant.EMAIL_SEND_QUENE,
+  async (job: Job<TEMAILJOB>) => {
+    const { email, composedEmail, subject, batchId, emailBatchDatabaseId } = job.data;
 
-      console.info(`📧 Sent: ${job.email}`);
+    // Get batch config (cache → DB)
+    let config = batchConfigCache.get(batchId?.toString() || "");
+    if (!config) {
+      const batch = await db.query.emailBatchSchema.findFirst({
+        where: eq(emailBatchSchema.id, Number(emailBatchDatabaseId))
+      });
 
-      if (job.emailBatchDatabaseId) {
-        await Promise.all([
-          database.db
-            .update(emailSchema)
-            .set({
-              status: "completed",
-              lastAttemptAt: new Date()
-            })
-            .where(and(eq(emailSchema.email, job.email), eq(emailSchema.batchId, Number(job.emailBatchDatabaseId)))),
+      if (!batch) throw new Error("Batch not found");
 
-          database.db
-            .update(emailBatchSchema)
-            .set({
-              emailsSent: sql`${emailBatchSchema.emailsSent} + 1`,
-              updatedAt: new Date()
-            })
-            .where(eq(emailBatchSchema.id, Number(job.emailBatchDatabaseId)))
-        ]);
-      }
+      config = {
+        delay: batch.delayBetweenEmails,
+        batchSize: batch.emailsPerBatch,
+        processedCount: 0,
+        totalEmails: batch.totalEmails
+      };
 
-      logger.info(`✅ Done: ${job.email}`);
-    } catch (error) {
-      logger.error(`❌ Failed: ${job.email}`, error);
+      batchConfigCache.set(batchId?.toString() || "", config);
+    }
 
-      if (job.emailBatchDatabaseId) {
-        await Promise.all([
-          database.db
-            .update(emailSchema)
-            .set({
-              status: "failed",
-              failedReason: error instanceof Error ? error.message : "Unknown error",
-              lastAttemptAt: new Date()
-            })
-            .where(and(eq(emailSchema.email, job.email), eq(emailSchema.batchId, Number(job.emailBatchDatabaseId)))),
+    // Process email
+    await gloabalMailMessage(email, composedEmail, subject, batchId);
 
-          database.db
-            .update(emailBatchSchema)
-            .set({
-              emailsFailed: sql`${emailBatchSchema.emailsFailed} + 1`,
-              updatedAt: new Date()
-            })
-            .where(eq(emailBatchSchema.id, Number(job.emailBatchDatabaseId)))
-        ]);
+    // Delay between emails
+    if (config.delay > 0) {
+      await new Promise((r) => setTimeout(r, config.delay));
+    }
+
+    // Update counters
+    config.processedCount++;
+
+    // If one batch completed → pause
+    if (config.processedCount >= config.batchSize) {
+      console.log(`Batch ${batchId} processed ${config.batchSize} emails, pausing worker...`);
+      await emailWorker.pause();
+      config.processedCount = 0; // reset for next batch
+    }
+
+    // If all emails completed → mark DB completed
+    const processedInDb = await db.query.emailBatchSchema.findFirst({
+      where: eq(emailBatchSchema.id, Number(emailBatchDatabaseId)),
+      columns: { totalEmails: true }
+    });
+
+    if (processedInDb && job.id) {
+      // Rough check → completed if queue empty and all emails sent
+      // const queueCount = await job.queue.getJobCountByTypes("waiting", "delayed", "active");
+      const queueCount = await emailQueue.getJobCountByTypes("waiting", "delayed", "active");
+      if (queueCount === 0) {
+        await db
+          .update(emailBatchSchema)
+          .set({ status: "completed" })
+          .where(eq(emailBatchSchema.id, Number(emailBatchDatabaseId)));
+        console.log(`Batch ${batchId} completed`);
       }
     }
-  }
-}
+  },
+  { connection, concurrency: 1 }
+);

@@ -1,8 +1,8 @@
+import { emailBatchSchema } from "./emailBatchSchema";
 import { userSchema } from "./userSchema";
 
 export const schema = {
-  users: userSchema
-  // ** RBAC RELATIONS
-  //** RBAC SCHEMA
+  users: userSchema,
+  emailBatchSchema
 };
 export type TSCHEMA = typeof schema;

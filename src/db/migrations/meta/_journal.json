@@ -15,6 +15,13 @@
       "when": 1758644032763,
       "tag": "0001_curved_miracleman",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1758822220083,
+      "tag": "0002_next_quasimodo",
+      "breakpoints": true
     }
   ]
 }
