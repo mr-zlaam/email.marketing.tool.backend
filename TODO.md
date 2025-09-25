@@ -1,1 +1,2 @@
-# No todos for now
+- Fix delay is not working while sending email
+- Fix batch is not working like if we say use 20 emails from quene it still send the total email
