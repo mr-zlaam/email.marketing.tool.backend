@@ -8,6 +8,13 @@
       "when": 1759053367519,
       "tag": "0000_small_beast",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1759055110596,
+      "tag": "0001_talented_pandemic",
+      "breakpoints": true
     }
   ]
 }

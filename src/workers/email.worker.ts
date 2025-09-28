@@ -6,48 +6,72 @@ import appConstant from "../constants/app.constant";
 import { redisConfig } from "../config/connections.config";
 import { emailBatchSchema } from "../db/schemas/emailBatchSchema";
 import { database } from "../db/db";
-import { emailQueue } from "../quenes/emailQuene.config";
 import { mockMailSend } from "../utils/globalUtil/mockMailSend.util";
-import { getBatchConfig, incrementProcessed, resetProcessed } from "../features/utils/batchConfigRedis.util";
+import { getBatchConfig, incrementProcessed, resetProcessed, setPaused } from "../features/utils/batchConfigRedis.util";
 
-const connection = new IORedis(redisConfig);
 const db = database.db;
+const connection = new IORedis(redisConfig);
+const redis = new IORedis(redisConfig);
 
 export const emailWorker = new Worker<TEMAILJOB>(
   appConstant.EMAIL_SEND_QUENE,
   async (job: Job<TEMAILJOB>) => {
-    const { email, composedEmail, subject, batchId, emailBatchDatabaseId } = job.data;
+    const { email, composedEmail, subject, batchId, emailBatchDatabaseId, uploadId } = job.data;
 
-    // Load batch config
-    const config = await getBatchConfig(batchId?.toString() || "");
+    // ✅ Only process if batch is active
+    const activeBatchId = await redis.get(`upload:${uploadId}:activeBatch`);
+    if (activeBatchId !== batchId.toString()) {
+      console.log(`Job ${job.id} skipped because batch ${batchId} is not active for upload ${uploadId}`);
+      return; // just skip safely, don’t delay → prevents Missing lock
+    }
+
+    const config = await getBatchConfig(batchId.toString());
     if (!config) throw new Error(`Batch config not found in Redis for ${batchId}`);
 
-    // Send email
+    if (config.paused) {
+      console.log(`Batch ${batchId} is paused, skipping job ${job.id}`);
+      return;
+    }
+
+    // Send mail
     await mockMailSend({ composedEmail, subject, to: email });
 
-    // Delay between emails
     if (config.delay > 0) {
       await delay(config.delay);
     }
 
-    // Update processed counter
-    const processedCount = await incrementProcessed(batchId?.toString() || "");
+    const processedCount = await incrementProcessed(batchId.toString());
 
-    // If batch is full → pause
     if (processedCount >= config.batchSize) {
-      console.log(`Batch ${batchId} processed ${config.batchSize} emails, pausing queue...`);
-      await emailQueue.pause(); // persists in Redis
-      await resetProcessed(batchId?.toString() || "");
+      console.log(`Batch ${batchId} processed ${config.batchSize} emails → pausing`);
+      await resetProcessed(batchId.toString());
+      await setPaused(batchId.toString(), true);
+
+      console.log("orignal db got updated");
+      await db
+        .update(emailBatchSchema)
+        .set({ status: "paused" })
+        .where(eq(emailBatchSchema.id, Number(emailBatchDatabaseId)));
+      // ** how many time orignal db got updated
     }
 
-    // Completion check
-    const queueCount = await emailQueue.getJobCountByTypes("waiting", "delayed", "active");
-    if (queueCount === 0) {
+    // Check if this specific batch is completed by tracking total processed for batch
+    const totalProcessedGlobal = await redis.hincrby(`batch:${batchId}`, "totalProcessedEmails", 1);
+    const [currentBatch] = await db
+      .select()
+      .from(emailBatchSchema)
+      .where(eq(emailBatchSchema.id, Number(emailBatchDatabaseId)));
+
+    if (currentBatch && totalProcessedGlobal >= currentBatch.totalEmails) {
       await db
         .update(emailBatchSchema)
         .set({ status: "completed" })
         .where(eq(emailBatchSchema.id, Number(emailBatchDatabaseId)));
-      console.log(`Batch ${batchId} completed`);
+
+      // Clear active batch in Redis
+      await redis.del(`upload:${uploadId}:activeBatch`);
+
+      console.log(`Batch ${batchId} completed - processed all ${currentBatch.totalEmails} emails`);
     }
   },
   { connection, concurrency: 1 }

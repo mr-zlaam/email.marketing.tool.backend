@@ -16,12 +16,13 @@ export interface IEMAILBATCHBODY {
   emailsPerBatch: string;
   batchName: string;
   composedEmail: string;
+  uploadId: number;
 }
 
 export interface TEMAILJOB {
   email: string;
   composedEmail: string;
-  batchId?: string;
+  batchId: string;
   emailBatchDatabaseId?: number;
   subject: string;
   db?: DatabaseClient;
@@ -29,6 +30,7 @@ export interface TEMAILJOB {
   delayBetweenEmails?: string;
   emailsPerBatch?: string;
   scheduleTime?: "NOW" | Date;
+  uploadId?: number;
 }
 
 export interface IRESUMEBATCHBODY {

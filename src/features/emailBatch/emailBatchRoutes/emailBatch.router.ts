@@ -5,6 +5,7 @@ import { emailBatchValidationZ } from "../emailBatchValidation/emailBatch.valida
 import { emailBatchController } from "../emailBatchController/createEmailBatch.controller";
 import { getAllEmailBatchController } from "../emailBatchController/getAllEmailBatch.controller";
 import { deleteBatchController } from "../emailBatchController/deleteBatch.controller";
+import { getUploadsWithBatchesController } from "../emailBatchController/getUploadsWithBatches.controller";
 import { authMiddleware } from "../../../middlewares/auth.middleware";
 import { uploadSingleFile } from "../../../middlewares/multer.middleware";
 export const emailBatchRouter: Router = Router();
@@ -21,6 +22,11 @@ emailBatchRouter
 
 // ** Get All Email Batches
 emailBatchRouter.route("/getAllBatches").get(authMiddleware(database.db).checkToken, getAllEmailBatchController(database.db).getAllEmailBatch);
+
+// ** Get Uploads with Batches (Paginated)
+emailBatchRouter
+  .route("/getUploadsWithBatches")
+  .get(authMiddleware(database.db).checkToken, getUploadsWithBatchesController(database.db).getUploadsWithBatches);
 
 // ** Get Email Batch By ID
 

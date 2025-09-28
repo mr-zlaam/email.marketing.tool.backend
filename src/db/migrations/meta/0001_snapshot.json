@@ -1,6 +1,6 @@
 {
-  "id": "54c992c7-1c1e-46d6-9eb4-3ebc744821cc",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "6f9f3afd-321b-4c3f-b68a-3ac2cd9efe32",
+  "prevId": "54c992c7-1c1e-46d6-9eb4-3ebc744821cc",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -510,7 +510,7 @@
     "public.batchStatus": {
       "name": "batchStatus",
       "schema": "public",
-      "values": ["pending", "processing", "completed", "failed"]
+      "values": ["pending", "processing", "completed", "failed", "paused"]
     },
     "public.currentEmailStatus": {
       "name": "currentEmailStatus",
