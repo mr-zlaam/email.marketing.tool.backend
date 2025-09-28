@@ -1,70 +1,39 @@
-# 📧 Email Marketing System - API Documentation
+# Email Marketing System API Documentation
 
-## 🚀 System Overview
+## Overview
 
-This is a **comprehensive email marketing system** designed for bulk email campaigns with intelligent batch processing, rate limiting, and real-time tracking. The system allows users to upload email lists, create batches with custom settings, and monitor campaign progress with detailed analytics.
+This is a bulk email marketing system that allows users to upload email lists and send campaigns in controlled batches. The system uses intelligent auto-pause functionality to prevent spam and maintain good sender reputation.
 
-### 🏗️ Architecture
+## Base URLs
+- **Development**: `http://localhost:3000/api/v1`
+- **Production**: `https://yourdomain.com/api/v1`
 
+## Authentication
+
+Most API endpoints require authentication using JWT Bearer tokens. Include the token in the Authorization header of your requests.
+
+**Header Format:**
 ```
-📁 Frontend Application
-    ↓ (HTTP Requests)
-📁 Express.js API Server (/api/v1)
-    ↓ (Database Operations)
-📁 PostgreSQL Database (User Data, Batches, Uploads)
-    ↓ (Queue Management)
-📁 Redis + BullMQ (Email Queue, Batch Tracking)
-    ↓ (Email Processing)
-📁 Background Workers (Email Sending)
+Authorization: Bearer YOUR_JWT_TOKEN
 ```
+
+Endpoints that don't require authentication will be explicitly mentioned.
 
 ---
 
-## 🔗 Base URL
-```
-Production: https://your-domain.com/api/v1
-Development: http://localhost:3000/api/v1
-```
+## User Management
 
----
+The system supports regular users and admin users. Admin users have additional privileges to create other users and view all users in the system.
 
-## 🔐 Authentication
+### Register New User
 
-All endpoints (except auth) require **JWT Bearer Token** in headers:
-```javascript
-headers: {
-  'Authorization': 'Bearer YOUR_JWT_TOKEN',
-  'Content-Type': 'application/json'
-}
-```
+**Endpoint:** `POST /api/v1/user/registerUser`
 
----
+**Description:** Creates a new user account in the system. This endpoint does not require authentication and is open for public registration.
 
-## 🎯 Email Marketing Campaign Flow
+**Authentication Required:** No
 
-### Step 1: User Authentication
-1. **Register** → **Verify OTP** → **Login** → Get JWT Token
-
-### Step 2: Create Email Campaign
-2. **Upload CSV/Excel** with emails → Create first batch → System queues all emails
-
-### Step 3: Batch Management
-3. **Monitor Progress** → **Pause/Resume** → **Create Additional Batches** for remaining emails
-
-### Step 4: Analytics & Tracking
-4. **View Upload History** → **Track Batch Progress** → **Monitor Email Status**
-
----
-
-## 📚 API Endpoints
-
-### 👤 User Management
-
-#### Register User
-```http
-POST /api/v1/user/registerUser
-```
-**Body:**
+**Request Body:**
 ```json
 {
   "username": "john_doe",
@@ -73,7 +42,14 @@ POST /api/v1/user/registerUser
   "password": "SecurePass123!"
 }
 ```
-**Response:**
+
+**Field Requirements:**
+- `username`: Must be unique, alphanumeric characters and underscores only
+- `fullName`: Full display name of the user
+- `email`: Must be valid email format and unique in the system
+- `password`: Minimum security requirements apply
+
+**Success Response (HTTP 201):**
 ```json
 {
   "success": true,
@@ -81,121 +57,228 @@ POST /api/v1/user/registerUser
   "message": "User registered successfully. Please verify your email.",
   "data": {
     "user": {
-      "uid": "uuid-123",
+      "uid": "550e8400-e29b-41d4-a716-446655440000",
       "username": "john_doe",
+      "fullName": "John Doe",
       "email": "john@example.com",
-      "isVerified": false
+      "role": "USER",
+      "isVerified": false,
+      "createdAt": "2024-01-15T10:30:00.000Z",
+      "updatedAt": "2024-01-15T10:30:00.000Z"
     }
   }
 }
 ```
 
-#### Verify User (OTP)
-```http
-PATCH /api/v1/user/verifyUser
+**Error Responses:**
+- **HTTP 400:** Username already exists, email already registered, or validation errors
+- **HTTP 500:** Internal server error during user creation
+
+### Admin Creates User
+
+**Endpoint:** `POST /api/v1/user/adminCreatesTheUser`
+
+**Description:** Allows admin users to create new user accounts. This is useful for administrative user management and bulk user creation by authorized personnel.
+
+**Authentication Required:** Yes (Admin role only)
+
+**Headers:**
 ```
-**Body:**
+Authorization: Bearer ADMIN_JWT_TOKEN
+Content-Type: application/json
+```
+
+**Request Body:**
 ```json
 {
-  "email": "john@example.com",
-  "otp": "123456"
+  "username": "jane_smith",
+  "fullName": "Jane Smith",
+  "email": "jane@company.com",
+  "password": "AdminCreatedPass123!"
 }
 ```
 
-#### Login User
-```http
-POST /api/v1/user/loginUser
-```
-**Body:**
+**Success Response (HTTP 201):**
 ```json
 {
-  "email": "john@example.com",
-  "password": "SecurePass123!"
+  "success": true,
+  "status": 201,
+  "message": "User created successfully by admin",
+  "data": {
+    "user": {
+      "uid": "660e8400-e29b-41d4-a716-446655440001",
+      "username": "jane_smith",
+      "fullName": "Jane Smith",
+      "email": "jane@company.com",
+      "role": "USER",
+      "isVerified": false,
+      "createdAt": "2024-01-15T11:00:00.000Z",
+      "updatedAt": "2024-01-15T11:00:00.000Z"
+    }
+  }
 }
 ```
-**Response:**
+
+**Error Responses:**
+- **HTTP 401:** Authentication token missing or invalid
+- **HTTP 403:** User does not have admin privileges
+- **HTTP 400:** Username or email already exists, validation errors
+- **HTTP 500:** Internal server error
+
+### Get All Users
+
+**Endpoint:** `GET /api/v1/user/getAllUser`
+
+**Description:** Retrieves a complete list of all users registered in the system. This endpoint is restricted to admin users only for security and privacy reasons.
+
+**Authentication Required:** Yes (Admin role only)
+
+**Headers:**
+```
+Authorization: Bearer ADMIN_JWT_TOKEN
+```
+
+**Query Parameters:** None
+
+**Success Response (HTTP 200):**
 ```json
 {
   "success": true,
   "status": 200,
-  "message": "Login successful",
+  "message": "Users retrieved successfully",
   "data": {
-    "user": {
-      "uid": "uuid-123",
-      "username": "john_doe",
-      "email": "john@example.com",
-      "role": "USER"
-    },
-    "tokens": {
-      "accessToken": "jwt-access-token",
-      "refreshToken": "jwt-refresh-token"
-    }
+    "users": [
+      {
+        "uid": "550e8400-e29b-41d4-a716-446655440000",
+        "username": "john_doe",
+        "fullName": "John Doe",
+        "email": "john@example.com",
+        "role": "USER",
+        "isVerified": true,
+        "createdAt": "2024-01-15T10:30:00.000Z",
+        "updatedAt": "2024-01-15T10:30:00.000Z"
+      },
+      {
+        "uid": "660e8400-e29b-41d4-a716-446655440001",
+        "username": "jane_smith",
+        "fullName": "Jane Smith",
+        "email": "jane@company.com",
+        "role": "ADMIN",
+        "isVerified": true,
+        "createdAt": "2024-01-14T08:15:00.000Z",
+        "updatedAt": "2024-01-14T08:15:00.000Z"
+      }
+    ],
+    "totalUsers": 2
   }
 }
 ```
 
-#### Get Current User
-```http
-GET /api/v1/user/getCurrentUser
-```
-**Headers:** `Authorization: Bearer JWT_TOKEN`
+**Response Fields Explanation:**
+- `uid`: Unique identifier for each user
+- `username`: User's chosen username
+- `fullName`: User's display name
+- `email`: User's email address
+- `role`: Either "USER" or "ADMIN"
+- `isVerified`: Whether the user has verified their email address
+- `createdAt`: When the user account was created
+- `updatedAt`: When the user account was last modified
 
-#### Refresh Token
-```http
-POST /api/v1/user/refreshAccessToken
-```
-**Body:**
-```json
-{
-  "refreshToken": "your-refresh-token"
-}
-```
-
-#### Logout User
-```http
-POST /api/v1/user/logoutUser
-```
-**Headers:** `Authorization: Bearer JWT_TOKEN`
+**Error Responses:**
+- **HTTP 401:** Authentication token missing or invalid
+- **HTTP 403:** User does not have admin privileges
+- **HTTP 500:** Internal server error
 
 ---
 
-### 📧 Email Campaign Management
+## Email Campaign Management
 
-#### Create Email Batch (Upload + Batch)
-```http
-POST /api/v1/emailBatch/createEmailBatch
-```
+The email campaign system allows users to upload lists of email addresses and send marketing campaigns in controlled batches. The system includes intelligent auto-pause functionality to prevent overwhelming recipients and maintain good sender reputation.
+
+### How the Email Batch System Works
+
+Understanding the batch system is crucial for using the API effectively:
+
+1. **File Upload Process**: When a user uploads a CSV or Excel file containing email addresses, the system immediately extracts all email addresses and queues them in BullMQ for processing.
+
+2. **Batch Configuration**: Each batch is created with specific settings including the number of emails to process before auto-pausing and the delay between individual email sends.
+
+3. **Worker Processing**: Background workers process the queued emails one by one, respecting the configured delay between sends.
+
+4. **Auto-Pause Mechanism**: After processing the specified number of emails (`emailsPerBatch`), the batch automatically pauses. This prevents overwhelming recipients and helps maintain good sender reputation.
+
+5. **Database Optimization**: The system only updates the database when batch status changes (pause/complete), not after every individual email, ensuring optimal performance.
+
+6. **Continuation Process**: Users can create additional batches for the same upload to continue processing remaining emails.
+
+### Create Email Batch
+
+**Endpoint:** `POST /api/v1/emailBatch/createEmailBatch`
+
+**Description:** Creates a new email campaign batch. This can be done either by uploading a new file containing email addresses or by creating an additional batch for an existing upload. The system supports both scenarios to provide flexibility in campaign management.
+
+**Authentication Required:** Yes
+
 **Headers:**
 ```
 Authorization: Bearer JWT_TOKEN
-Content-Type: multipart/form-data
-```
-**Form Data:**
-```javascript
-const formData = new FormData();
-formData.append('file', emailFile); // CSV/Excel file
-formData.append('batchName', 'Summer Campaign 2024');
-formData.append('subject', 'Special Summer Offer!');
-formData.append('composedEmail', '<h1>Your Email HTML Content</h1>');
-formData.append('delayBetweenEmails', '2'); // seconds
-formData.append('emailsPerBatch', '50'); // emails per batch before auto-pause
-formData.append('scheduleTime', 'NOW');
+Content-Type: multipart/form-data (for file upload)
+Content-Type: application/json (for existing upload)
 ```
 
-**Alternative - Create Batch for Existing Upload:**
+**Option 1 - New File Upload:**
+
+When uploading a new file, use multipart form data with the following fields:
+
+- `file`: CSV or Excel file containing email addresses
+- `batchName`: Descriptive name for this batch campaign
+- `subject`: Email subject line for all emails in this batch
+- `composedEmail`: HTML content of the email to be sent
+- `delayBetweenEmails`: Number of seconds to wait between sending individual emails
+- `emailsPerBatch`: Number of emails to process before automatically pausing the batch
+- `scheduleTime`: When to start processing ("NOW" for immediate start)
+
+**Option 2 - Existing Upload:**
+
+For creating additional batches from previously uploaded email lists, send JSON data:
+
 ```json
 {
   "uploadId": 123,
-  "batchName": "Followup Campaign",
-  "subject": "Don't Miss Out!",
-  "composedEmail": "<p>Followup email content</p>",
+  "batchName": "Follow-up Campaign Wave 2",
+  "subject": "Don't miss out on our special offer!",
+  "composedEmail": "<html><body><h1>Special Offer</h1><p>Your email content here</p></body></html>",
   "delayBetweenEmails": "3",
   "emailsPerBatch": "25",
   "scheduleTime": "NOW"
 }
 ```
 
-**Response:**
+**Field Requirements:**
+- `batchName`: 3-50 characters, descriptive name for tracking
+- `subject`: 3-50 characters, email subject line
+- `composedEmail`: 10-10000 characters, HTML email content
+- `delayBetweenEmails`: String representing seconds (e.g., "2" for 2 seconds)
+- `emailsPerBatch`: String representing number (1-100)
+- `scheduleTime`: Currently supports "NOW" for immediate processing
+
+**File Requirements:**
+- **Supported Formats**: CSV (.csv), Excel (.xlsx, .xls)
+- **Maximum Size**: 10 MB per file
+- **Required Structure**: Must contain a column named "email" with valid email addresses
+- **Optional Columns**: firstName, lastName, or other custom fields
+
+**What Happens Internally:**
+
+When a batch is created, the following process occurs:
+
+1. If uploading a file, all email addresses are extracted and immediately queued in BullMQ
+2. A batch record is created in the database with the specified settings
+3. The `totalEmailSentToQueue` field is updated with the total number of emails queued
+4. Background workers begin processing emails with the specified delay between sends
+5. After processing the specified number of emails (`emailsPerBatch`), the batch automatically pauses
+
+**Success Response (HTTP 201):**
 ```json
 {
   "success": true,
@@ -204,14 +287,16 @@ formData.append('scheduleTime', 'NOW');
   "data": {
     "batch": {
       "id": 1,
-      "batchId": "uuid-batch-123",
+      "batchId": "550e8400-e29b-41d4-a716-446655440000",
       "batchName": "Summer Campaign 2024",
       "totalEmails": 1000,
       "status": "processing",
       "emailsPerBatch": 50,
       "delayBetweenEmails": 2000,
-      "subject": "Special Summer Offer!",
-      "createdAt": "2024-01-15T10:30:00Z"
+      "subject": "Special Summer Offer",
+      "composedEmail": "<html><body>Email content here</body></html>",
+      "createdAt": "2024-01-15T10:30:00.000Z",
+      "updatedAt": "2024-01-15T10:30:00.000Z"
     },
     "uploadId": 1,
     "totalEmails": 1000,
@@ -220,19 +305,47 @@ formData.append('scheduleTime', 'NOW');
 }
 ```
 
-#### Get Uploads with Batches (📊 Main Dashboard Endpoint)
-```http
-GET /api/v1/emailBatch/getUploadsWithBatches
+**Response Field Explanations:**
+- `id`: Database ID of the batch record
+- `batchId`: Unique UUID identifier for the batch
+- `totalEmails`: Number of emails that will be processed in this batch
+- `status`: Current processing status of the batch
+- `delayBetweenEmails`: Delay in milliseconds (converted from seconds)
+- `uploadId`: ID of the upload record this batch belongs to
+
+**Error Responses:**
+- **HTTP 400**: Invalid file format, no emails found in file, validation errors, or active batch already exists for upload
+- **HTTP 401**: Authentication token missing or invalid
+- **HTTP 404**: Upload ID not found (when using existing upload option)
+- **HTTP 500**: Internal server error during batch creation
+
+### Get Uploads with Batches
+
+**Endpoint:** `GET /api/v1/emailBatch/getUploadsWithBatches`
+
+**Description:** Retrieves upload records along with their associated batches. This is the primary endpoint for dashboard displays and campaign monitoring. It supports both paginated listing of all uploads and detailed view of specific uploads.
+
+**Authentication Required:** Yes
+
+**Headers:**
 ```
-**Headers:** `Authorization: Bearer JWT_TOKEN`
+Authorization: Bearer JWT_TOKEN
+```
 
 **Query Parameters:**
-```
-?page=1&pageSize=10                    // Paginated list
-?uploadId=123                          // Specific upload details
-```
 
-**Response:**
+**Option 1 - Paginated List:**
+- `page`: Page number (default: 1, minimum: 1)
+- `pageSize`: Number of items per page (default: 10, minimum: 1, maximum: 100)
+
+**Option 2 - Specific Upload:**
+- `uploadId`: Specific upload ID to retrieve with all its batches
+
+**Example URLs:**
+- `/api/v1/emailBatch/getUploadsWithBatches?page=1&pageSize=10`
+- `/api/v1/emailBatch/getUploadsWithBatches?uploadId=123`
+
+**Success Response - Paginated List (HTTP 200):**
 ```json
 {
   "success": true,
@@ -242,37 +355,37 @@ GET /api/v1/emailBatch/getUploadsWithBatches
     "uploads": [
       {
         "id": 1,
-        "uploadedFileName": "summer_leads.csv",
+        "uploadedFileName": "customer_email_list_2024.csv",
         "totalEmails": 1000,
         "totalEmailSentToQueue": 1000,
         "status": "processing",
         "uploadedBy": "john_doe",
-        "createdAt": "2024-01-15T10:00:00Z",
+        "createdAt": "2024-01-15T10:00:00.000Z",
         "metaData": null,
         "batches": [
           {
             "id": 1,
-            "batchId": "uuid-batch-123",
-            "batchName": "Summer Campaign Batch 1",
+            "batchId": "550e8400-e29b-41d4-a716-446655440000",
+            "batchName": "Welcome Campaign Batch 1",
             "totalEmails": 50,
             "status": "paused",
             "emailsPerBatch": 50,
             "delayBetweenEmails": 2000,
-            "subject": "Special Summer Offer!",
-            "createdAt": "2024-01-15T10:30:00Z",
-            "updatedAt": "2024-01-15T11:00:00Z"
+            "subject": "Welcome to our service!",
+            "createdAt": "2024-01-15T10:30:00.000Z",
+            "updatedAt": "2024-01-15T11:00:00.000Z"
           },
           {
             "id": 2,
-            "batchId": "uuid-batch-456",
-            "batchName": "Summer Campaign Batch 2",
+            "batchId": "660e8400-e29b-41d4-a716-446655440001",
+            "batchName": "Welcome Campaign Batch 2",
             "totalEmails": 50,
             "status": "completed",
             "emailsPerBatch": 50,
             "delayBetweenEmails": 2000,
-            "subject": "Special Summer Offer!",
-            "createdAt": "2024-01-15T12:00:00Z",
-            "updatedAt": "2024-01-15T12:30:00Z"
+            "subject": "Welcome to our service!",
+            "createdAt": "2024-01-15T12:00:00.000Z",
+            "updatedAt": "2024-01-15T12:30:00.000Z"
           }
         ]
       }
@@ -289,310 +402,172 @@ GET /api/v1/emailBatch/getUploadsWithBatches
 }
 ```
 
-#### Get All Batches (Simple List)
-```http
-GET /api/v1/emailBatch/getAllBatches
-```
-**Headers:** `Authorization: Bearer JWT_TOKEN`
-
-#### Delete Batch
-```http
-DELETE /api/v1/emailBatch/deleteBatch/:batchId
-```
-**Headers:** `Authorization: Bearer JWT_TOKEN`
-**URL:** `/api/v1/emailBatch/deleteBatch/uuid-batch-123`
-
----
-
-## 🎛️ Batch Status Management
-
-### Batch Statuses:
-- **`pending`** - Batch created but not started
-- **`processing`** - Currently sending emails
-- **`paused`** - Auto-paused after reaching `emailsPerBatch` limit
-- **`completed`** - All emails in batch sent successfully
-- **`failed`** - Batch failed due to error
-
-### How Auto-Pause Works:
-1. Create batch with `emailsPerBatch: 50`
-2. System processes 50 emails → **Auto-pauses**
-3. User can create new batch for remaining emails
-4. Or resume existing batch (if implemented)
-
----
-
-## 📊 Frontend Integration Examples
-
-### React.js Integration
-
-#### 1. Authentication Hook
-```javascript
-// hooks/useAuth.js
-import { useState, useEffect } from 'react';
-
-export const useAuth = () => {
-  const [token, setToken] = useState(localStorage.getItem('accessToken'));
-  const [user, setUser] = useState(null);
-
-  const login = async (email, password) => {
-    const response = await fetch('/api/v1/user/loginUser', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
-
-    const data = await response.json();
-    if (data.success) {
-      setToken(data.data.tokens.accessToken);
-      setUser(data.data.user);
-      localStorage.setItem('accessToken', data.data.tokens.accessToken);
-      localStorage.setItem('refreshToken', data.data.tokens.refreshToken);
-    }
-    return data;
-  };
-
-  const logout = () => {
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-  };
-
-  return { token, user, login, logout };
-};
-```
-
-#### 2. Email Campaign Hook
-```javascript
-// hooks/useEmailCampaigns.js
-import { useState, useEffect } from 'react';
-
-export const useEmailCampaigns = (token) => {
-  const [uploads, setUploads] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [pagination, setPagination] = useState(null);
-
-  const fetchUploads = async (page = 1, pageSize = 10) => {
-    setLoading(true);
-    try {
-      const response = await fetch(
-        `/api/v1/emailBatch/getUploadsWithBatches?page=${page}&pageSize=${pageSize}`,
+**Success Response - Specific Upload (HTTP 200):**
+```json
+{
+  "success": true,
+  "status": 200,
+  "message": "Upload with batches retrieved",
+  "data": {
+    "upload": {
+      "id": 1,
+      "uploadedFileName": "customer_email_list_2024.csv",
+      "totalEmails": 1000,
+      "totalEmailSentToQueue": 1000,
+      "status": "processing",
+      "uploadedBy": "john_doe",
+      "createdAt": "2024-01-15T10:00:00.000Z",
+      "metaData": null,
+      "batches": [
         {
-          headers: { 'Authorization': `Bearer ${token}` }
+          "id": 1,
+          "batchId": "550e8400-e29b-41d4-a716-446655440000",
+          "batchName": "Welcome Campaign Batch 1",
+          "totalEmails": 50,
+          "status": "paused",
+          "emailsPerBatch": 50,
+          "delayBetweenEmails": 2000,
+          "subject": "Welcome to our service!"
         }
-      );
-
-      const data = await response.json();
-      if (data.success) {
-        setUploads(data.data.uploads);
-        setPagination(data.data.pagination);
-      }
-    } catch (error) {
-      console.error('Failed to fetch uploads:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const createBatch = async (formData) => {
-    const response = await fetch('/api/v1/emailBatch/createEmailBatch', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` },
-      body: formData
-    });
-
-    const data = await response.json();
-    if (data.success) {
-      fetchUploads(); // Refresh list
-    }
-    return data;
-  };
-
-  useEffect(() => {
-    if (token) fetchUploads();
-  }, [token]);
-
-  return { uploads, loading, pagination, fetchUploads, createBatch };
-};
+      ]
+    },
+    "totalBatches": 1
+  }
+}
 ```
 
-#### 3. Campaign Dashboard Component
-```javascript
-// components/CampaignDashboard.jsx
-import React from 'react';
-import { useAuth } from '../hooks/useAuth';
-import { useEmailCampaigns } from '../hooks/useEmailCampaigns';
+**Response Field Explanations:**
 
-const CampaignDashboard = () => {
-  const { token, user } = useAuth();
-  const { uploads, loading, pagination, fetchUploads } = useEmailCampaigns(token);
+**Upload Fields:**
+- `id`: Unique identifier for the upload record
+- `uploadedFileName`: Original name of the uploaded file
+- `totalEmails`: Total number of email addresses found in the uploaded file
+- `totalEmailSentToQueue`: Number of emails that have been queued for processing
+- `status`: Current status of the upload processing
+- `uploadedBy`: Username of the user who uploaded the file
+- `createdAt`: When the file was uploaded
+- `metaData`: Additional metadata (usually null)
 
-  const getStatusColor = (status) => {
-    const colors = {
-      'processing': 'bg-blue-100 text-blue-800',
-      'paused': 'bg-yellow-100 text-yellow-800',
-      'completed': 'bg-green-100 text-green-800',
-      'failed': 'bg-red-100 text-red-800',
-      'pending': 'bg-gray-100 text-gray-800'
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
-  };
+**Batch Fields:**
+- `id`: Database ID of the batch
+- `batchId`: Unique UUID for the batch
+- `batchName`: User-defined name for the batch
+- `totalEmails`: Number of emails this specific batch will process
+- `status`: Current processing status of this batch
+- `emailsPerBatch`: Configured auto-pause threshold
+- `delayBetweenEmails`: Delay between individual emails in milliseconds
+- `subject`: Email subject line for this batch
 
-  if (loading) return <div>Loading campaigns...</div>;
+**Pagination Fields:**
+- `currentPage`: Current page number being displayed
+- `pageSize`: Number of items per page
+- `totalRecord`: Total number of upload records available
+- `totalPage`: Total number of pages available
+- `hasNextPage`: Whether there are more pages after the current one
+- `hasPreviousPage`: Whether there are pages before the current one
 
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Email Campaigns</h1>
-
-      {uploads.map(upload => (
-        <div key={upload.id} className="bg-white shadow rounded-lg mb-6 p-6">
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <h3 className="text-lg font-semibold">{upload.uploadedFileName}</h3>
-              <p className="text-gray-600">
-                {upload.totalEmails} total emails •
-                {upload.totalEmailSentToQueue} queued
-              </p>
-            </div>
-            <span className={`px-2 py-1 rounded text-sm ${getStatusColor(upload.status)}`}>
-              {upload.status}
-            </span>
-          </div>
-
-          <div className="space-y-3">
-            <h4 className="font-medium">Batches ({upload.batches.length})</h4>
-            {upload.batches.map(batch => (
-              <div key={batch.id} className="border-l-4 border-blue-500 pl-4 py-2">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <p className="font-medium">{batch.batchName}</p>
-                    <p className="text-sm text-gray-600">
-                      {batch.totalEmails} emails • {batch.emailsPerBatch} per batch •
-                      {batch.delayBetweenEmails/1000}s delay
-                    </p>
-                  </div>
-                  <span className={`px-2 py-1 rounded text-sm ${getStatusColor(batch.status)}`}>
-                    {batch.status}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-
-      {pagination && (
-        <div className="flex justify-center space-x-2 mt-6">
-          {pagination.hasPreviousPage && (
-            <button
-              onClick={() => fetchUploads(pagination.currentPage - 1)}
-              className="px-4 py-2 bg-blue-500 text-white rounded"
-            >
-              Previous
-            </button>
-          )}
-          <span className="px-4 py-2">
-            Page {pagination.currentPage} of {pagination.totalPage}
-          </span>
-          {pagination.hasNextPage && (
-            <button
-              onClick={() => fetchUploads(pagination.currentPage + 1)}
-              className="px-4 py-2 bg-blue-500 text-white rounded"
-            >
-              Next
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default CampaignDashboard;
-```
+**Error Responses:**
+- **HTTP 400**: Invalid pagination parameters or invalid uploadId format
+- **HTTP 401**: Authentication token missing or invalid
+- **HTTP 404**: Specific upload not found (when uploadId is specified)
+- **HTTP 500**: Internal server error
 
 ---
 
-## 📁 File Upload Requirements
+## Batch Status System
 
-### Supported Formats:
-- **CSV** (.csv)
-- **Excel** (.xlsx, .xls)
+Understanding the different batch statuses is important for monitoring campaign progress and taking appropriate actions.
 
-### File Structure:
-```csv
-email,firstName,lastName
-john@example.com,John,Doe
-jane@example.com,Jane,Smith
-mike@example.com,Mike,Johnson
-```
+### Status Meanings
 
-### File Size Limits:
-- Maximum file size: **10MB**
-- Maximum emails per file: **10,000**
+**pending**: The batch has been created and configured, but background workers have not yet started processing the emails. This is a temporary status that usually changes to "processing" within seconds.
+
+**processing**: Background workers are actively sending emails from this batch. Emails are being processed one by one with the configured delay between sends. The batch will automatically change to "paused" when it reaches the `emailsPerBatch` limit.
+
+**paused**: The batch has automatically paused after processing the configured number of emails (`emailsPerBatch`). This is the system's intelligent throttling mechanism to prevent overwhelming recipients and maintain good sender reputation. Users can create additional batches to continue processing.
+
+**completed**: All emails assigned to this specific batch have been successfully processed. This means the batch has finished its designated work. Note that there may still be unprocessed emails in the original upload that require additional batches.
+
+**failed**: The batch encountered an error during processing and has stopped. This could be due to various issues such as email service problems, configuration errors, or system failures.
+
+### Auto-Pause System Explanation
+
+The auto-pause system is a key feature that provides intelligent email sending control:
+
+1. **Initial Setup**: User creates a batch with `emailsPerBatch: 50` setting
+2. **Queue Population**: All emails from the upload are immediately queued in BullMQ
+3. **Worker Processing**: Background workers begin processing emails one by one with the specified delay
+4. **Redis Tracking**: The system tracks `processedCount` in Redis, incrementing after each email is sent
+5. **Auto-Pause Trigger**: When `processedCount` reaches 50 (the configured limit):
+   - Worker resets the counter to 0 in Redis
+   - Worker sets the Redis `paused` flag to true
+   - Worker updates the database batch status to "paused"
+6. **Processing Halt**: The batch stops processing automatically
+7. **Continuation**: User can create a new batch for the same upload to continue with remaining emails
+
+This system provides precise control over email sending rates, helps prevent being flagged as spam, and allows for strategic campaign pacing.
 
 ---
 
-## ⚠️ Error Handling
+## Error Response Format
 
-### Standard Error Response:
+All API endpoints follow a consistent error response format to ensure predictable error handling.
+
+**Standard Error Response Structure:**
 ```json
 {
   "success": false,
   "status": 400,
-  "message": "Invalid request parameters",
+  "message": "Detailed error description explaining what went wrong",
   "data": null
 }
 ```
 
-### Common Error Codes:
-- **400** - Bad Request (validation errors)
-- **401** - Unauthorized (invalid/missing token)
-- **403** - Forbidden (insufficient permissions)
-- **404** - Not Found (resource doesn't exist)
-- **429** - Too Many Requests (rate limited)
-- **500** - Internal Server Error
+### HTTP Status Codes
 
-### Rate Limiting:
-- **Login**: 5 attempts per 2 minutes
-- **OTP**: 1 request per 2 minutes
-- **Profile Updates**: 1 request per 24 hours
+**200 OK**: Request successful, data retrieved or operation completed successfully
 
----
+**201 Created**: Resource created successfully (user registration, batch creation)
 
-## 🚀 Production Deployment Checklist
+**400 Bad Request**: Invalid request data, validation errors, or business logic violations. The message field will contain specific details about what was invalid.
 
-1. **Environment Variables:**
-   ```env
-   NODE_ENV=production
-   DATABASE_URL=postgresql://...
-   REDIS_URL=redis://...
-   JWT_SECRET=your-secret-key
-   ALLOWED_REGIONS=["https://yourdomain.com"]
-   ```
+**401 Unauthorized**: Authentication token is missing, invalid, or expired. The user needs to log in again or provide a valid token.
 
-2. **CORS Configuration:**
-   - Update `ALLOWED_REGIONS` in environment
-   - Ensure frontend domain is whitelisted
+**403 Forbidden**: The authenticated user does not have sufficient privileges for the requested operation. For example, non-admin users trying to access admin-only endpoints.
 
-3. **Rate Limiting:**
-   - Configure Redis for rate limiting
-   - Adjust limits based on requirements
+**404 Not Found**: The requested resource does not exist. This could be a non-existent upload ID, batch ID, or user.
 
-4. **File Upload:**
-   - Configure proper storage (AWS S3, etc.)
-   - Set appropriate file size limits
+**500 Internal Server Error**: An unexpected error occurred on the server. These errors are logged for investigation and should be reported if they persist.
 
 ---
 
-## 📞 Support & Integration Help
+## Available Endpoints Summary
 
-For technical support or integration assistance:
-- **Documentation**: This file
-- **TypeScript Types**: Available in `/src/types/types.ts`
-- **Validation Schemas**: Check `/src/features/*/validation/*.ts`
-- **Example Requests**: Use the examples above
+The API currently provides five core endpoints for essential functionality:
 
----
+1. **POST /api/v1/user/registerUser**
+   - Purpose: Create new user accounts
+   - Authentication: Not required
+   - Use case: Public user registration
 
-**🎉 Happy Building! The system is designed for scale, performance, and ease of use.**
+2. **POST /api/v1/user/adminCreatesTheUser**
+   - Purpose: Admin-managed user creation
+   - Authentication: Required (Admin role)
+   - Use case: Administrative user management
+
+3. **GET /api/v1/user/getAllUser**
+   - Purpose: Retrieve all system users
+   - Authentication: Required (Admin role)
+   - Use case: User management and administration
+
+4. **POST /api/v1/emailBatch/createEmailBatch**
+   - Purpose: Create email marketing campaigns
+   - Authentication: Required
+   - Use case: Campaign creation and email list processing
+
+5. **GET /api/v1/emailBatch/getUploadsWithBatches**
+   - Purpose: Monitor campaign progress and history
+   - Authentication: Required
+   - Use case: Dashboard display and campaign tracking
+
+These endpoints provide complete functionality for user management and email campaign creation and monitoring. The system is designed to be scalable, secure, and efficient for bulk email marketing operations.
