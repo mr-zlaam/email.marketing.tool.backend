@@ -1,11 +1,14 @@
 import { serial, pgTable, timestamp, uuid, varchar, integer, text } from "drizzle-orm/pg-core";
 import { userSchema } from "../userSchema";
 import { currentEmailBatchStatusEnum } from "../shared/enums";
+import { uploadBulkEmailMetaDataSchema } from "../uploadBulkEmailMetaData";
 
 export const emailBatchSchema = pgTable("emailBatch", {
   id: serial("id").notNull().primaryKey(),
   batchId: uuid("batchId").notNull().unique().defaultRandom(),
-
+  currentBatchBelongsTo: integer("currentBatchBelongsTo")
+    .notNull()
+    .references(() => uploadBulkEmailMetaDataSchema.id),
   createdBy: varchar("createdBy", { length: 100 })
     .notNull()
     .references(() => userSchema.username),

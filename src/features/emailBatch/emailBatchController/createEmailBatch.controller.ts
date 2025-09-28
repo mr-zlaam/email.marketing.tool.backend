@@ -11,6 +11,9 @@ import appConstant from "../../../constants/app.constant";
 import { httpResponse } from "../../../utils/globalUtil/apiResponse.util";
 import reshttp from "reshttp";
 import fs from "node:fs";
+import { initBatchConfig } from "../../utils/batchConfigRedis.util";
+import { uploadBulkEmailMetaDataSchema } from "../../../db/schemas/uploadBulkEmailMetaData";
+import { eq } from "drizzle-orm";
 
 class EmailBatchController {
   private readonly _db: DatabaseClient;
@@ -37,10 +40,20 @@ class EmailBatchController {
 
     const delayMs = parseInt(delayBetweenEmails, 10) * 1000;
     const batchCount = parseInt(emailsPerBatch, 10);
+    const fileName = filePath.split("/").pop() || "";
+    const [insertMetaData] = await this._db
+      .insert(uploadBulkEmailMetaDataSchema)
+      .values({
+        uploadedBy: user.username,
+        uploadedFileName: fileName,
+        totalEmails: emails.length
+      })
+      .returning({ id: uploadBulkEmailMetaDataSchema.id });
 
     const [insertBatch] = await this._db
       .insert(emailBatchSchema)
       .values({
+        currentBatchBelongsTo: insertMetaData.id,
         batchName,
         createdBy: user.username,
         totalEmails: emails.length,
@@ -51,7 +64,12 @@ class EmailBatchController {
         emailsPerBatch: batchCount
       })
       .returning();
-
+    await initBatchConfig(insertBatch.batchId, {
+      delay: delayMs,
+      batchSize: batchCount,
+      processedCount: 0,
+      totalEmails: emails.length
+    });
     let startTime: number;
     if (scheduleTime === "NOW") {
       startTime = Date.now();
@@ -78,9 +96,11 @@ class EmailBatchController {
         { removeOnComplete: true }
       );
     });
-
+    await this._db
+      .update(uploadBulkEmailMetaDataSchema)
+      .set({ totalEmailSentToQueue: emails.length, status: "processing" })
+      .where(eq(uploadBulkEmailMetaDataSchema.id, insertMetaData.id));
     fs.unlinkSync(filePath);
-
     httpResponse(req, res, reshttp.createdCode, "Email batch created and queued", {
       ...insertBatch,
       status: "processing",

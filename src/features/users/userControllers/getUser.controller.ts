@@ -94,8 +94,7 @@ class GetUserController {
     if (!uid) return throwError(reshttp.badRequestCode, "uid is required");
     const user = await this._db.query.users.findFirst({
       where: eq(userSchema.uid, uid),
-      columns: appConstant.SELECTED_COLUMNS.FROM.USER,
-      with: { onboarding: true, selectPartnership: true, applicationSubmission: true, documentSubmission: true, vendorOrBuyerAgreement: true }
+      columns: appConstant.SELECTED_COLUMNS.FROM.USER
     });
     if (!user) return throwError(reshttp.notFoundCode, "User not found");
     httpResponse(req, res, reshttp.okCode, reshttp.okMessage, { data: user });
@@ -110,20 +109,7 @@ class GetUserController {
     }
     const user = await this._db.query.users.findFirst({
       where: eq(userSchema.uid, uid),
-      columns: appConstant.SELECTED_COLUMNS.FROM.USER,
-      with: {
-        onboarding: true,
-        selectPartnership: true,
-        applicationSubmission: {
-          with: {
-            bussinessInformation: true,
-            bankingInformation: true,
-            businessCredibilityAssessment: true,
-            bussinessContactInformation: true
-          }
-        },
-        vendorOrBuyerAgreement: true
-      }
+      columns: appConstant.SELECTED_COLUMNS.FROM.USER
     });
     httpResponse(req, res, reshttp.okCode, reshttp.okMessage, { data: user });
   });
