@@ -3,11 +3,12 @@ import IORedis from "ioredis";
 import { eq } from "drizzle-orm";
 import type { TEMAILJOB } from "../types/types";
 import appConstant from "../constants/app.constant";
-import { gloabalMailMessage } from "../services/globalEmail.service";
+//import { gloabalMailMessage } from "../services/globalEmail.service";
 import { redisConfig } from "../config/connections.config";
 import { emailBatchSchema } from "../db/schemas/emailBatchSchema";
 import { database } from "../db/db";
 import { emailQueue } from "../quenes/emailQuene.config";
+import { mockMailSend } from "../utils/globalUtil/mockMailSend.util";
 
 const connection = new IORedis(redisConfig);
 const db = database.db;
@@ -46,7 +47,8 @@ export const emailWorker = new Worker<TEMAILJOB>(
     }
 
     // Process email
-    await gloabalMailMessage(email, composedEmail, subject, batchId);
+    //    await gloabalMailMessage(email, composedEmail, subject, batchId);
+    await mockMailSend({ composedEmail, subject, to: email });
 
     // Delay between emails
     if (config.delay > 0) {

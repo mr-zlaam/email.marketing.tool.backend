@@ -7,8 +7,6 @@ import logger from "../../../utils/globalUtil/logger.util";
 import { throwError } from "../../../utils/globalUtil/throwError.util";
 import { passwordHasher } from "../../../utils/globalUtil/passwordHasher.util";
 import envConfig from "../../../config/env.config";
-import emailResponsesConstant from "../../../constants/emailResponses.constant";
-import { gloabalMailMessage } from "../../../services/globalEmail.service";
 import { userRepo } from "../userRepos/user.repo";
 
 export const userUpdateService = (db: DatabaseClient) => {
@@ -45,7 +43,7 @@ export const userUpdateService = (db: DatabaseClient) => {
   const forgotPasswordRequestFromUserService = async (email: string) => {
     const user = await userRepo(db).getUserByEmail(email);
     const verificationUrl = `${envConfig.FRONTEND_APP_URI}/resetAndUpdateNewPassword?token=${user.OTP_TOKEN}`;
-    await gloabalMailMessage(email, emailResponsesConstant.SEND_OTP_FOR_RESET_PASSWORD_REQUEST(verificationUrl, "1h"), "Password Reset Request");
+    return verificationUrl;
   };
   const logoutUserService = (res: Response) => {
     res.clearCookie("accessToken");

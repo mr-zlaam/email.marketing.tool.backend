@@ -32,6 +32,7 @@ class UpdateUserController {
 
   constructor(db: DatabaseClient) {
     this._db = db;
+    // @ts-expect-error hello
     this._userUpdateService = userUpdateService(this._db);
   }
 

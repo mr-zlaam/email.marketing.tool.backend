@@ -37,3 +37,8 @@ export interface IRESUMEBATCHBODY {
   delayBetweenEmails: string;
   emailsPerBatch: string;
 }
+export interface TMAILDATATOSEND {
+  to: string;
+  subject: string;
+  composedEmail: string;
+}
