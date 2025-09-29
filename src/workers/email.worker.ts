@@ -8,7 +8,7 @@ import { emailBatchSchema } from "../db/schemas/emailBatchSchema";
 import { uploadBulkEmailMetaDataSchema } from "../db/schemas/uploadBulkEmailMetaData";
 import { individualEmailSchema } from "../db/schemas/individualEmailSchema";
 import { database } from "../db/db";
-import { mockMailSend } from "../utils/globalUtil/mockMailSend.util";
+import { gloabalMailMessage } from "../services/globalEmail.service";
 
 const db = database.db;
 const connection = new IORedis(redisConfig);
@@ -39,7 +39,7 @@ export const emailWorker = new Worker<TEMAILJOB>(
     }
 
     // Send mail
-    await mockMailSend({ composedEmail, subject, to: email });
+    await gloabalMailMessage({ composedEmail, subject, to: email });
     console.log(`✅ Email sent to ${email}`);
 
     // Apply delay if configured
