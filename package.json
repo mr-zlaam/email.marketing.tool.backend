@@ -38,6 +38,7 @@
     "@types/express": "^5.0.0",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/multer": "^1.4.12",
+    "@types/nodemailer": "^7.0.1",
     "@types/pg": "^8.11.11",
     "add": "^2.0.6",
     "drizzle-kit": "^0.30.5",
