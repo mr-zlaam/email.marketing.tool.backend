@@ -6,7 +6,8 @@ import { httpResponse } from "../../../utils/globalUtil/apiResponse.util";
 import { throwError } from "../../../utils/globalUtil/throwError.util";
 import { uploadBulkEmailMetaDataSchema } from "../../../db/schemas/uploadBulkEmailMetaData";
 import { emailBatchSchema } from "../../../db/schemas/emailBatchSchema";
-import { eq, desc, count } from "drizzle-orm";
+import { individualEmailSchema } from "../../../db/schemas/individualEmailSchema";
+import { eq, desc, count, sql } from "drizzle-orm";
 import reshttp from "reshttp";
 
 interface IUploadsWithBatchesQuery {
@@ -18,7 +19,8 @@ interface IUploadsWithBatchesQuery {
 interface IUploadWithBatches {
   id: number;
   uploadedFileName: string;
-  totalEmails: number;
+  totalEmails: number; // Original total emails uploaded
+  remainingEmails: number; // Current remaining emails to process
   totalEmailSentToQueue: number;
   status: string;
   uploadedBy: string;
@@ -29,9 +31,9 @@ interface IUploadWithBatches {
     batchId: string;
     batchName: string;
     totalEmails: number;
-    status: string | null;
-    emailsPerBatch: number;
-    delayBetweenEmails: number;
+    status: string | null; // "processing", "paused", "completed"
+    emailsPerBatch: number; // Auto-pause threshold
+    delayBetweenEmails: number; // Delay in milliseconds
     subject: string;
     createdAt: Date;
     updatedAt: Date;
@@ -69,6 +71,7 @@ class GetUploadsWithBatchesController {
         return throwError(404, "Upload not found");
       }
 
+      // Get the single batch for this specific upload (single batch per upload system)
       const batches = await this._db
         .select({
           id: emailBatchSchema.id,
@@ -86,8 +89,15 @@ class GetUploadsWithBatchesController {
         .where(eq(emailBatchSchema.currentBatchBelongsTo, uploadIdNum))
         .orderBy(desc(emailBatchSchema.createdAt));
 
+      // Get remaining emails count from individual emails table
+      const [{ count: remainingEmails }] = await this._db
+        .select({ count: sql<number>`count(*)` })
+        .from(individualEmailSchema)
+        .where(eq(individualEmailSchema.uploadId, uploadIdNum));
+
       const uploadWithBatches: IUploadWithBatches = {
         ...upload,
+        remainingEmails,
         batches
       };
 
@@ -115,6 +125,7 @@ class GetUploadsWithBatchesController {
     const uploadsWithBatches: IUploadWithBatches[] = [];
 
     for (const upload of uploads) {
+      // Get the single batch for this upload (single batch per upload system)
       const batches = await this._db
         .select({
           id: emailBatchSchema.id,
@@ -132,8 +143,15 @@ class GetUploadsWithBatchesController {
         .where(eq(emailBatchSchema.currentBatchBelongsTo, upload.id))
         .orderBy(desc(emailBatchSchema.createdAt));
 
+      // Get remaining emails count from individual emails table
+      const [{ count: remainingEmails }] = await this._db
+        .select({ count: sql<number>`count(*)` })
+        .from(individualEmailSchema)
+        .where(eq(individualEmailSchema.uploadId, upload.id));
+
       uploadsWithBatches.push({
         ...upload,
+        remainingEmails,
         batches
       });
     }

@@ -3,9 +3,9 @@ import { validator } from "../../../middlewares/validation.middleware";
 import { database } from "../../../db/db";
 import { emailBatchValidationZ } from "../emailBatchValidation/emailBatch.validation";
 import { emailBatchController } from "../emailBatchController/createEmailBatch.controller";
-import { getAllEmailBatchController } from "../emailBatchController/getAllEmailBatch.controller";
 import { deleteBatchController } from "../emailBatchController/deleteBatch.controller";
 import { getUploadsWithBatchesController } from "../emailBatchController/getUploadsWithBatches.controller";
+import { emailBatchController as updateEmailBatchController } from "../emailBatchController/updateEmailBatch.controller";
 import { authMiddleware } from "../../../middlewares/auth.middleware";
 import { uploadSingleFile } from "../../../middlewares/multer.middleware";
 export const emailBatchRouter: Router = Router();
@@ -21,7 +21,6 @@ emailBatchRouter
   );
 
 // ** Get All Email Batches
-emailBatchRouter.route("/getAllBatches").get(authMiddleware(database.db).checkToken, getAllEmailBatchController(database.db).getAllEmailBatch);
 
 // ** Get Uploads with Batches (Paginated)
 emailBatchRouter
@@ -32,3 +31,9 @@ emailBatchRouter
 
 // ** Delete Email Batch
 emailBatchRouter.route("/deleteBatch/:batchId").delete(authMiddleware(database.db).checkToken, deleteBatchController(database.db).deleteBatch);
+
+// ** Pause Email Batch
+emailBatchRouter.route("/pauseBatch/:batchId").patch(authMiddleware(database.db).checkToken, updateEmailBatchController(database.db).pauseBatch);
+
+// ** Resume Email Batch
+emailBatchRouter.route("/resumeBatch/:batchId").patch(authMiddleware(database.db).checkToken, updateEmailBatchController(database.db).resumeBatch);

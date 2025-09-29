@@ -1,2 +1,1 @@
-- Fix delay is not working while sending email
-- Fix batch is not working like if we say use 20 emails from quene it still send the total email
+- Fix email is deleting after every job done we don't need to update db too often we can delete them all after batch has done doing it's job.

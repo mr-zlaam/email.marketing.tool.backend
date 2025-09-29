@@ -5,6 +5,7 @@
 This is a bulk email marketing system that allows users to upload email lists and send campaigns in controlled batches. The system uses intelligent auto-pause functionality to prevent spam and maintain good sender reputation.
 
 ## Base URLs
+
 - **Development**: `http://localhost:3000/api/v1`
 - **Production**: `https://yourdomain.com/api/v1`
 
@@ -13,6 +14,7 @@ This is a bulk email marketing system that allows users to upload email lists an
 Most API endpoints require authentication using JWT Bearer tokens. Include the token in the Authorization header of your requests.
 
 **Header Format:**
+
 ```
 Authorization: Bearer YOUR_JWT_TOKEN
 ```
@@ -34,6 +36,7 @@ The system supports regular users and admin users. Admin users have additional p
 **Authentication Required:** No
 
 **Request Body:**
+
 ```json
 {
   "username": "john_doe",
@@ -44,12 +47,14 @@ The system supports regular users and admin users. Admin users have additional p
 ```
 
 **Field Requirements:**
+
 - `username`: Must be unique, alphanumeric characters and underscores only
 - `fullName`: Full display name of the user
 - `email`: Must be valid email format and unique in the system
 - `password`: Minimum security requirements apply
 
 **Success Response (HTTP 201):**
+
 ```json
 {
   "success": true,
@@ -71,6 +76,7 @@ The system supports regular users and admin users. Admin users have additional p
 ```
 
 **Error Responses:**
+
 - **HTTP 400:** Username already exists, email already registered, or validation errors
 - **HTTP 500:** Internal server error during user creation
 
@@ -83,12 +89,14 @@ The system supports regular users and admin users. Admin users have additional p
 **Authentication Required:** Yes (Admin role only)
 
 **Headers:**
+
 ```
 Authorization: Bearer ADMIN_JWT_TOKEN
 Content-Type: application/json
 ```
 
 **Request Body:**
+
 ```json
 {
   "username": "jane_smith",
@@ -99,6 +107,7 @@ Content-Type: application/json
 ```
 
 **Success Response (HTTP 201):**
+
 ```json
 {
   "success": true,
@@ -120,6 +129,7 @@ Content-Type: application/json
 ```
 
 **Error Responses:**
+
 - **HTTP 401:** Authentication token missing or invalid
 - **HTTP 403:** User does not have admin privileges
 - **HTTP 400:** Username or email already exists, validation errors
@@ -134,6 +144,7 @@ Content-Type: application/json
 **Authentication Required:** Yes (Admin role only)
 
 **Headers:**
+
 ```
 Authorization: Bearer ADMIN_JWT_TOKEN
 ```
@@ -141,6 +152,7 @@ Authorization: Bearer ADMIN_JWT_TOKEN
 **Query Parameters:** None
 
 **Success Response (HTTP 200):**
+
 ```json
 {
   "success": true,
@@ -175,6 +187,7 @@ Authorization: Bearer ADMIN_JWT_TOKEN
 ```
 
 **Response Fields Explanation:**
+
 - `uid`: Unique identifier for each user
 - `username`: User's chosen username
 - `fullName`: User's display name
@@ -185,6 +198,7 @@ Authorization: Bearer ADMIN_JWT_TOKEN
 - `updatedAt`: When the user account was last modified
 
 **Error Responses:**
+
 - **HTTP 401:** Authentication token missing or invalid
 - **HTTP 403:** User does not have admin privileges
 - **HTTP 500:** Internal server error
@@ -199,27 +213,34 @@ The email campaign system allows users to upload lists of email addresses and se
 
 Understanding the batch system is crucial for using the API effectively:
 
-1. **File Upload Process**: When a user uploads a CSV or Excel file containing email addresses, the system immediately extracts all email addresses and queues them in BullMQ for processing.
+1. **File Upload Process**: When a user uploads a CSV or Excel file containing email addresses, the system extracts all email addresses and stores each email individually in the `individualEmails` table with automatic duplicate prevention.
 
-2. **Batch Configuration**: Each batch is created with specific settings including the number of emails to process before auto-pausing and the delay between individual email sends.
+2. **Database-Driven Processing**: The system uses PostgreSQL as the single source of truth. Each email is stored as a separate record with only essential information: email address, upload reference, and creation timestamp.
 
-3. **Worker Processing**: Background workers process the queued emails one by one, respecting the configured delay between sends.
+3. **Batch-by-Batch Queuing**: Instead of queuing all emails at once, the system only queues the current batch size (e.g., 50 emails) to BullMQ for processing.
 
-4. **Auto-Pause Mechanism**: After processing the specified number of emails (`emailsPerBatch`), the batch automatically pauses. This prevents overwhelming recipients and helps maintain good sender reputation.
+4. **Worker Processing**: Background workers process emails one by one, applying the configured delay between sends. After successful processing, emails are **permanently deleted** from the database.
 
-5. **Database Optimization**: The system only updates the database when batch status changes (pause/complete), not after every individual email, ensuring optimal performance.
+5. **Auto-Pause Mechanism**: After processing the specified number of emails (`emailsPerBatch`), the batch automatically pauses. Users can then resume to process the next batch.
 
-6. **Continuation Process**: Users can create additional batches for the same upload to continue processing remaining emails.
+6. **Resume Functionality**: When resuming, the system queries the database for all remaining emails (since only unprocessed emails exist) and queues the next batch. This approach ensures 100% reliable resume functionality.
+
+7. **Duplicate Prevention**: The system uses a unique constraint on `(email, uploadId)` to automatically handle duplicate emails within the same upload using `ON CONFLICT DO NOTHING`.
+
+8. **Progress Tracking**: The system tracks progress by counting remaining emails in the `individualEmails` table. When no emails remain, the upload is marked as "completed".
+
+9. **Simplified Error Handling**: Failed emails remain in the database and can be retried later. The system doesn't track complex status states - emails either exist (pending) or are deleted (completed).
 
 ### Create Email Batch
 
 **Endpoint:** `POST /api/v1/emailBatch/createEmailBatch`
 
-**Description:** Creates a new email campaign batch. This can be done either by uploading a new file containing email addresses or by creating an additional batch for an existing upload. The system supports both scenarios to provide flexibility in campaign management.
+**Description:** Creates a new email campaign batch or resumes an existing batch with new settings. This can be done either by uploading a new file containing email addresses or by resuming/updating an existing batch for a previous upload. The system uses a single batch per upload approach for simplified tracking and management.
 
 **Authentication Required:** Yes
 
 **Headers:**
+
 ```
 Authorization: Bearer JWT_TOKEN
 Content-Type: multipart/form-data (for file upload)
@@ -238,9 +259,9 @@ When uploading a new file, use multipart form data with the following fields:
 - `emailsPerBatch`: Number of emails to process before automatically pausing the batch
 - `scheduleTime`: When to start processing ("NOW" for immediate start)
 
-**Option 2 - Existing Upload:**
+**Option 2 - Resume Existing Batch:**
 
-For creating additional batches from previously uploaded email lists, send JSON data:
+For resuming or updating an existing batch from previously uploaded email lists, send JSON data:
 
 ```json
 {
@@ -255,6 +276,7 @@ For creating additional batches from previously uploaded email lists, send JSON 
 ```
 
 **Field Requirements:**
+
 - `batchName`: 3-50 characters, descriptive name for tracking
 - `subject`: 3-50 characters, email subject line
 - `composedEmail`: 10-10000 characters, HTML email content
@@ -263,6 +285,7 @@ For creating additional batches from previously uploaded email lists, send JSON 
 - `scheduleTime`: Currently supports "NOW" for immediate processing
 
 **File Requirements:**
+
 - **Supported Formats**: CSV (.csv), Excel (.xlsx, .xls)
 - **Maximum Size**: 10 MB per file
 - **Required Structure**: Must contain a column named "email" with valid email addresses
@@ -270,15 +293,32 @@ For creating additional batches from previously uploaded email lists, send JSON 
 
 **What Happens Internally:**
 
-When a batch is created, the following process occurs:
+When a batch is created or resumed, the following process occurs:
 
-1. If uploading a file, all email addresses are extracted and immediately queued in BullMQ
-2. A batch record is created in the database with the specified settings
-3. The `totalEmailSentToQueue` field is updated with the total number of emails queued
-4. Background workers begin processing emails with the specified delay between sends
-5. After processing the specified number of emails (`emailsPerBatch`), the batch automatically pauses
+**For New File Upload:**
+
+1. All email addresses are extracted from the uploaded file
+2. Each email is inserted into the `individualEmails` table (only email address, uploadId, and timestamp)
+3. Duplicate emails within the same upload are automatically ignored using `ON CONFLICT DO NOTHING`
+4. The system counts actual inserted emails after deduplication
+5. A batch record is created with the specified settings
+6. The first batch of emails (up to `emailsPerBatch` limit) is queued in BullMQ
+7. Background workers process emails with the configured delay, then permanently delete them from the database
+8. After processing the batch size limit, the batch automatically pauses
+
+**For Existing Upload (Resume):**
+
+1. System counts all remaining emails in the `individualEmails` table (since only unprocessed emails exist)
+2. If emails remain, the system updates the existing batch with new settings
+3. The next batch of emails (up to `emailsPerBatch` limit) is queued in BullMQ
+4. Workers continue processing with the new configuration
+5. The batch status changes from "paused" to "processing"
+6. This approach ensures 100% reliable resume functionality since the database only contains unprocessed emails
 
 **Success Response (HTTP 201):**
+
+**For New File Upload:**
+
 ```json
 {
   "success": true,
@@ -289,7 +329,7 @@ When a batch is created, the following process occurs:
       "id": 1,
       "batchId": "550e8400-e29b-41d4-a716-446655440000",
       "batchName": "Summer Campaign 2024",
-      "totalEmails": 1000,
+      "totalEmails": 50,
       "status": "processing",
       "emailsPerBatch": 50,
       "delayBetweenEmails": 2000,
@@ -300,12 +340,43 @@ When a batch is created, the following process occurs:
     },
     "uploadId": 1,
     "totalEmails": 1000,
-    "status": "processing"
+    "status": "processing",
+    "operation": "created"
+  }
+}
+```
+
+**For Resumed Batch:**
+
+```json
+{
+  "success": true,
+  "status": 201,
+  "message": "Batch resumed under existing upload",
+  "data": {
+    "batch": {
+      "id": 1,
+      "batchId": "550e8400-e29b-41d4-a716-446655440000",
+      "batchName": "Updated Campaign Name",
+      "totalEmails": 25,
+      "status": "processing",
+      "emailsPerBatch": 25,
+      "delayBetweenEmails": 3000,
+      "subject": "Updated Subject Line",
+      "composedEmail": "<html><body>Updated email content</body></html>",
+      "createdAt": "2024-01-15T10:30:00.000Z",
+      "updatedAt": "2024-01-15T14:45:00.000Z"
+    },
+    "uploadId": 1,
+    "totalEmails": 850,
+    "status": "processing",
+    "operation": "resumed"
   }
 }
 ```
 
 **Response Field Explanations:**
+
 - `id`: Database ID of the batch record
 - `batchId`: Unique UUID identifier for the batch
 - `totalEmails`: Number of emails that will be processed in this batch
@@ -314,20 +385,22 @@ When a batch is created, the following process occurs:
 - `uploadId`: ID of the upload record this batch belongs to
 
 **Error Responses:**
-- **HTTP 400**: Invalid file format, no emails found in file, validation errors, or active batch already exists for upload
+
+- **HTTP 400**: Invalid file format, no emails found in file, validation errors, batch currently processing (cannot update while active), or upload already completed
 - **HTTP 401**: Authentication token missing or invalid
 - **HTTP 404**: Upload ID not found (when using existing upload option)
-- **HTTP 500**: Internal server error during batch creation
+- **HTTP 500**: Internal server error during batch creation or resume
 
 ### Get Uploads with Batches
 
 **Endpoint:** `GET /api/v1/emailBatch/getUploadsWithBatches`
 
-**Description:** Retrieves upload records along with their associated batches. This is the primary endpoint for dashboard displays and campaign monitoring. It supports both paginated listing of all uploads and detailed view of specific uploads.
+**Description:** Retrieves upload records along with their associated batch (single batch per upload). This is the primary endpoint for dashboard displays and campaign monitoring. It supports both paginated listing of all uploads and detailed view of specific uploads. Note that each upload will have exactly one batch associated with it.
 
 **Authentication Required:** Yes
 
 **Headers:**
+
 ```
 Authorization: Bearer JWT_TOKEN
 ```
@@ -335,17 +408,21 @@ Authorization: Bearer JWT_TOKEN
 **Query Parameters:**
 
 **Option 1 - Paginated List:**
+
 - `page`: Page number (default: 1, minimum: 1)
 - `pageSize`: Number of items per page (default: 10, minimum: 1, maximum: 100)
 
 **Option 2 - Specific Upload:**
+
 - `uploadId`: Specific upload ID to retrieve with all its batches
 
 **Example URLs:**
+
 - `/api/v1/emailBatch/getUploadsWithBatches?page=1&pageSize=10`
 - `/api/v1/emailBatch/getUploadsWithBatches?uploadId=123`
 
 **Success Response - Paginated List (HTTP 200):**
+
 ```json
 {
   "success": true,
@@ -357,16 +434,17 @@ Authorization: Bearer JWT_TOKEN
         "id": 1,
         "uploadedFileName": "customer_email_list_2024.csv",
         "totalEmails": 1000,
+        "remainingEmails": 900,
         "totalEmailSentToQueue": 1000,
         "status": "processing",
         "uploadedBy": "john_doe",
         "createdAt": "2024-01-15T10:00:00.000Z",
-        "metaData": null,
+        "metaData": {},
         "batches": [
           {
             "id": 1,
             "batchId": "550e8400-e29b-41d4-a716-446655440000",
-            "batchName": "Welcome Campaign Batch 1",
+            "batchName": "Welcome Campaign",
             "totalEmails": 50,
             "status": "paused",
             "emailsPerBatch": 50,
@@ -374,18 +452,6 @@ Authorization: Bearer JWT_TOKEN
             "subject": "Welcome to our service!",
             "createdAt": "2024-01-15T10:30:00.000Z",
             "updatedAt": "2024-01-15T11:00:00.000Z"
-          },
-          {
-            "id": 2,
-            "batchId": "660e8400-e29b-41d4-a716-446655440001",
-            "batchName": "Welcome Campaign Batch 2",
-            "totalEmails": 50,
-            "status": "completed",
-            "emailsPerBatch": 50,
-            "delayBetweenEmails": 2000,
-            "subject": "Welcome to our service!",
-            "createdAt": "2024-01-15T12:00:00.000Z",
-            "updatedAt": "2024-01-15T12:30:00.000Z"
           }
         ]
       }
@@ -403,6 +469,7 @@ Authorization: Bearer JWT_TOKEN
 ```
 
 **Success Response - Specific Upload (HTTP 200):**
+
 ```json
 {
   "success": true,
@@ -413,16 +480,17 @@ Authorization: Bearer JWT_TOKEN
       "id": 1,
       "uploadedFileName": "customer_email_list_2024.csv",
       "totalEmails": 1000,
+      "remainingEmails": 950,
       "totalEmailSentToQueue": 1000,
       "status": "processing",
       "uploadedBy": "john_doe",
       "createdAt": "2024-01-15T10:00:00.000Z",
-      "metaData": null,
+      "metaData": {},
       "batches": [
         {
           "id": 1,
           "batchId": "550e8400-e29b-41d4-a716-446655440000",
-          "batchName": "Welcome Campaign Batch 1",
+          "batchName": "Welcome Campaign",
           "totalEmails": 50,
           "status": "paused",
           "emailsPerBatch": 50,
@@ -439,26 +507,46 @@ Authorization: Bearer JWT_TOKEN
 **Response Field Explanations:**
 
 **Upload Fields:**
+
 - `id`: Unique identifier for the upload record
 - `uploadedFileName`: Original name of the uploaded file
-- `totalEmails`: Total number of email addresses found in the uploaded file
+- `totalEmails`: Total number of unique email addresses found in the uploaded file (after deduplication)
+- `remainingEmails`: Current number of emails still pending processing (real-time count from database)
 - `totalEmailSentToQueue`: Number of emails that have been queued for processing
 - `status`: Current status of the upload processing
 - `uploadedBy`: Username of the user who uploaded the file
 - `createdAt`: When the file was uploaded
-- `metaData`: Additional metadata (usually null)
+- `metaData`: Additional metadata (empty object in new system)
+
+**Individual Email Database Structure:**
+
+The system now uses a simplified `individualEmails` table with only essential fields:
+
+- `id`: Auto-incrementing primary key
+- `email`: Email address (VARCHAR 255)
+- `uploadId`: Foreign key reference to the upload record
+- `createdAt`: Timestamp when email was added to database
+
+**Key Design Decisions:**
+
+- **No Status Field**: Emails are either in the database (unprocessed) or deleted (processed)
+- **No User Data**: Only email addresses are stored, no firstName/lastName fields
+- **Unique Constraint**: `(email, uploadId)` prevents duplicates within same upload
+- **Cascading Delete**: When upload is deleted, all associated emails are automatically removed
 
 **Batch Fields:**
+
 - `id`: Database ID of the batch
 - `batchId`: Unique UUID for the batch
 - `batchName`: User-defined name for the batch
-- `totalEmails`: Number of emails this specific batch will process
-- `status`: Current processing status of this batch
-- `emailsPerBatch`: Configured auto-pause threshold
+- `totalEmails`: Number of emails in the current batch being processed (up to `emailsPerBatch` limit)
+- `status`: Current processing status of this batch (`processing`, `paused`, `completed`)
+- `emailsPerBatch`: Configured auto-pause threshold (how many emails to process before pausing)
 - `delayBetweenEmails`: Delay between individual emails in milliseconds
 - `subject`: Email subject line for this batch
 
 **Pagination Fields:**
+
 - `currentPage`: Current page number being displayed
 - `pageSize`: Number of items per page
 - `totalRecord`: Total number of upload records available
@@ -467,10 +555,48 @@ Authorization: Bearer JWT_TOKEN
 - `hasPreviousPage`: Whether there are pages before the current one
 
 **Error Responses:**
+
 - **HTTP 400**: Invalid pagination parameters or invalid uploadId format
 - **HTTP 401**: Authentication token missing or invalid
 - **HTTP 404**: Specific upload not found (when uploadId is specified)
 - **HTTP 500**: Internal server error
+
+---
+
+## Key Improvements for Frontend Developers
+
+The new database-driven approach provides several improvements for frontend integration:
+
+### **Reliable Progress Tracking**
+- Use `remainingEmails` field for accurate progress bars and completion percentages
+- Formula: `Progress = (totalEmails - remainingEmails) / totalEmails * 100`
+- Real-time updates without polling inconsistencies
+
+### **Improved Resume Functionality**
+- Resume operations now work reliably regardless of previous states
+- No need to track complex queue states - the database is always accurate
+- Resume button should be enabled when `remainingEmails > 0` and `status !== "processing"`
+
+### **Simplified Error Handling**
+- Failed emails remain in the database and can be retried later
+- No complex status tracking - emails either exist (unprocessed) or are deleted (completed)
+- System handles duplicates automatically with database constraints
+
+### **Dashboard Recommendations**
+```javascript
+// Recommended progress calculation
+const progressPercentage = Math.round(
+  ((upload.totalEmails - upload.remainingEmails) / upload.totalEmails) * 100
+);
+
+// Check if upload can be resumed
+const canResume = upload.remainingEmails > 0 &&
+                  upload.batches[0]?.status !== "processing";
+
+// Display status
+const displayStatus = upload.remainingEmails === 0 ? "Completed" :
+                     upload.batches[0]?.status || "Ready to start";
+```
 
 ---
 
@@ -514,6 +640,7 @@ This system provides precise control over email sending rates, helps prevent bei
 All API endpoints follow a consistent error response format to ensure predictable error handling.
 
 **Standard Error Response Structure:**
+
 ```json
 {
   "success": false,

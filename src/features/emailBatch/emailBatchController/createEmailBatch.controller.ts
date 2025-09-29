@@ -11,13 +11,9 @@ import appConstant from "../../../constants/app.constant";
 import { httpResponse } from "../../../utils/globalUtil/apiResponse.util";
 import reshttp from "reshttp";
 import fs from "node:fs";
-import { initBatchConfig } from "../../utils/batchConfigRedis.util";
 import { uploadBulkEmailMetaDataSchema } from "../../../db/schemas/uploadBulkEmailMetaData";
-import { eq, and } from "drizzle-orm";
-import Redis from "ioredis";
-import { redisConfig } from "../../../config/connections.config";
-
-const redis = new Redis(redisConfig);
+import { individualEmailSchema } from "../../../db/schemas/individualEmailSchema";
+import { eq, sql } from "drizzle-orm";
 
 class EmailBatchController {
   private readonly _db: DatabaseClient;
@@ -37,37 +33,60 @@ class EmailBatchController {
     const filePath = req.file?.path || "";
     if (filePath) {
       const extractor = new EmailExtractor();
-      const emails = await extractor.fromFile(filePath);
+      const emailData = await extractor.fromFile(filePath);
 
-      if (emails.length === 0) {
+      if (emailData.length === 0) {
         return throwError(400, "No valid emails found in the uploaded file");
       }
 
       const fileName = filePath.split("/").pop() || "";
+      const delayMs = parseInt(delayBetweenEmails, 10) * 1000;
+      const batchCount = parseInt(emailsPerBatch, 10);
 
+      // Create upload record
       const [insertMetaData] = await this._db
         .insert(uploadBulkEmailMetaDataSchema)
         .values({
           uploadedBy: user.username,
           uploadedFileName: fileName,
-          totalEmails: emails.length,
-          status: "processing"
+          totalEmails: emailData.length,
+          status: "processing",
+          metaData: {}
         })
         .returning({ id: uploadBulkEmailMetaDataSchema.id });
 
       uploadRecordId = insertMetaData.id;
-      totalEmailsInUpload = emails.length;
 
-      const delayMs = parseInt(delayBetweenEmails, 10) * 1000;
-      const batchCount = parseInt(emailsPerBatch, 10);
+      // Insert individual emails into database with ON CONFLICT DO NOTHING for duplicates
+      const emailRecords = emailData.map((email) => ({
+        email: typeof email === "string" ? email : (email as { email: string }).email,
+        uploadId: uploadRecordId
+      }));
 
+      await this._db.insert(individualEmailSchema).values(emailRecords).onConflictDoNothing();
+
+      // Count actual inserted emails (after deduplication)
+      const [{ count: actualEmailCount }] = await this._db
+        .select({ count: sql<number>`count(*)` })
+        .from(individualEmailSchema)
+        .where(eq(individualEmailSchema.uploadId, uploadRecordId));
+
+      // Update upload with actual email count
+      await this._db
+        .update(uploadBulkEmailMetaDataSchema)
+        .set({ totalEmails: actualEmailCount })
+        .where(eq(uploadBulkEmailMetaDataSchema.id, uploadRecordId));
+
+      totalEmailsInUpload = actualEmailCount;
+
+      // Create batch
       const [insertBatch] = await this._db
         .insert(emailBatchSchema)
         .values({
           currentBatchBelongsTo: uploadRecordId,
           batchName,
           createdBy: user.username,
-          totalEmails: emails.length,
+          totalEmails: Math.min(batchCount, actualEmailCount),
           status: "processing",
           subject,
           composedEmail,
@@ -76,70 +95,54 @@ class EmailBatchController {
         })
         .returning();
 
-      await initBatchConfig(insertBatch.batchId, {
-        delay: delayMs,
-        batchSize: batchCount,
-        processedCount: 0,
-        totalEmails: emails.length
+      // Queue first batch of emails
+      await this.queueNextBatch(uploadRecordId, insertBatch.batchId, insertBatch.id, batchCount, {
+        subject,
+        composedEmail,
+        batchName,
+        scheduleTime: scheduleTime?.toString() || "NOW"
       });
 
-      // Mark this batch as active in Redis
-      await redis.set(`upload:${uploadRecordId}:activeBatch`, insertBatch.batchId.toString());
-
-      emails.forEach((email) => {
-        void emailQueue.add(
-          appConstant.EMAIL_SEND_QUENE,
-          {
-            email,
-            composedEmail,
-            batchId: insertBatch.batchId,
-            emailBatchDatabaseId: insertBatch.id,
-            uploadId: uploadRecordId,
-            subject,
-            batchName,
-            scheduleTime
-          },
-          { removeOnComplete: true }
-        );
-      });
-      await this._db
-        .update(uploadBulkEmailMetaDataSchema)
-        .set({ totalEmailSentToQueue: emails.length })
-        .where(eq(uploadBulkEmailMetaDataSchema.id, uploadRecordId));
       fs.unlinkSync(filePath);
 
       return httpResponse(req, res, reshttp.createdCode, "New email batch created for uploaded file", {
         batch: insertBatch,
         uploadId: uploadRecordId,
-        totalEmails: emails.length,
-        status: "processing"
+        totalEmails: actualEmailCount,
+        status: "processing",
+        operation: "created"
       });
     }
 
     // ---------- 2️⃣ Handle existing uploadId ----------
     if (uploadId) {
+      console.log(`📁 Creating/resuming batch for existing uploadId: ${uploadId}`);
+
       const [existingUpload] = await this._db
         .select()
         .from(uploadBulkEmailMetaDataSchema)
         .where(eq(uploadBulkEmailMetaDataSchema.id, Number(uploadId)));
 
       if (!existingUpload) {
+        console.log(`❌ Upload ID ${uploadId} not found`);
         return throwError(404, "Upload ID not found");
       }
 
-      // Check if there is already an active batch
-      const [activeBatch] = await this._db
-        .select()
-        .from(emailBatchSchema)
-        .where(and(eq(emailBatchSchema.currentBatchBelongsTo, existingUpload.id), eq(emailBatchSchema.status, "processing")));
-
-      if (activeBatch) {
-        return throwError(400, "An active batch already exists for this upload. Please wait for it to finish.");
+      if (existingUpload.status === "completed") {
+        console.log(`🚫 Upload ${uploadId} is completed - cannot create new batches`);
+        return throwError(400, "This upload has been completed and cannot be used to create new batches");
       }
 
-      // Remaining emails
-      const remainingEmails = Number(existingUpload.totalEmails) - Number(existingUpload.totalEmailSentToQueue || 0);
+      // Check remaining emails in individual emails table
+      const [{ count: remainingEmails }] = await this._db
+        .select({ count: sql<number>`count(*)` })
+        .from(individualEmailSchema)
+        .where(eq(individualEmailSchema.uploadId, Number(uploadId)));
+
+      console.log(`📧 Remaining pending emails in upload ${uploadId}: ${remainingEmails}`);
+
       if (remainingEmails <= 0) {
+        console.log(`✅ All emails in upload ${uploadId} have been processed`);
         return throwError(400, "All emails under this upload are already processed.");
       }
 
@@ -149,41 +152,134 @@ class EmailBatchController {
       const delayMs = parseInt(delayBetweenEmails, 10) * 1000;
       const batchCount = parseInt(emailsPerBatch, 10);
 
-      const [insertBatch] = await this._db
-        .insert(emailBatchSchema)
-        .values({
-          currentBatchBelongsTo: uploadRecordId,
-          batchName,
-          createdBy: user.username,
-          totalEmails: remainingEmails,
-          status: "processing",
+      // Check if there's an existing batch
+      const [existingBatch] = await this._db.select().from(emailBatchSchema).where(eq(emailBatchSchema.currentBatchBelongsTo, existingUpload.id));
+
+      let batchResult;
+      let operationType: "created" | "resumed";
+
+      if (existingBatch) {
+        // RESUME EXISTING BATCH
+        console.log(`🔄 Resuming existing batch ${existingBatch.batchId} with new settings`);
+
+        if (existingBatch.status === "processing") {
+          console.log(`⚠️ Batch ${existingBatch.batchId} is currently active - cannot update while processing`);
+          return throwError(400, "Batch is currently processing. Please wait for it to pause before updating settings.");
+        }
+
+        // Update existing batch with new settings
+        const [updatedBatch] = await this._db
+          .update(emailBatchSchema)
+          .set({
+            batchName,
+            subject,
+            composedEmail,
+            delayBetweenEmails: delayMs,
+            emailsPerBatch: batchCount,
+            totalEmails: Math.min(batchCount, remainingEmails),
+            status: "processing",
+            updatedAt: new Date()
+          })
+          .where(eq(emailBatchSchema.id, existingBatch.id))
+          .returning();
+
+        console.log(`✅ Batch ${existingBatch.batchId} updated successfully`);
+
+        // Queue next batch of emails
+        await this.queueNextBatch(uploadRecordId, existingBatch.batchId, existingBatch.id, batchCount, {
           subject,
           composedEmail,
-          delayBetweenEmails: delayMs,
-          emailsPerBatch: batchCount
-        })
-        .returning();
+          batchName,
+          scheduleTime: scheduleTime?.toString() || "NOW"
+        });
 
-      await initBatchConfig(insertBatch.batchId, {
-        delay: delayMs,
-        batchSize: batchCount,
-        processedCount: 0,
-        totalEmails: remainingEmails
-      });
+        batchResult = updatedBatch;
+        operationType = "resumed";
+      } else {
+        // CREATE NEW BATCH
+        console.log(`⚙️ Creating new batch with config: delay=${delayMs}ms, batchSize=${batchCount}, remainingEmails=${remainingEmails}`);
 
-      // Mark this batch as active in Redis
-      await redis.set(`upload:${uploadRecordId}:activeBatch`, insertBatch.batchId.toString());
+        const [insertBatch] = await this._db
+          .insert(emailBatchSchema)
+          .values({
+            currentBatchBelongsTo: uploadRecordId,
+            batchName,
+            createdBy: user.username,
+            totalEmails: Math.min(batchCount, remainingEmails),
+            status: "processing",
+            subject,
+            composedEmail,
+            delayBetweenEmails: delayMs,
+            emailsPerBatch: batchCount
+          })
+          .returning();
 
-      return httpResponse(req, res, reshttp.createdCode, "New batch created under existing upload", {
-        batch: insertBatch,
+        console.log(`✅ New batch created with ID: ${insertBatch.id}, batchId: ${insertBatch.batchId}`);
+
+        // Queue first batch of emails
+        await this.queueNextBatch(uploadRecordId, insertBatch.batchId, insertBatch.id, batchCount, {
+          subject,
+          composedEmail,
+          batchName,
+          scheduleTime: scheduleTime?.toString() || "NOW"
+        });
+
+        batchResult = insertBatch;
+        operationType = "created";
+      }
+
+      console.log(`🚀 Batch ${operationType} completed successfully for upload ${uploadId}`);
+
+      return httpResponse(req, res, reshttp.createdCode, `Batch ${operationType} under existing upload`, {
+        batch: batchResult,
         uploadId: uploadRecordId,
         totalEmails: totalEmailsInUpload,
-        status: "processing"
+        status: "processing",
+        operation: operationType
       });
     }
 
     return throwError(400, "Must provide either file upload or uploadId");
   });
+
+  private queueNextBatch = async (
+    uploadId: number,
+    batchId: string,
+    batchDbId: number,
+    batchSize: number,
+    emailData: {
+      subject: string;
+      composedEmail: string;
+      batchName: string;
+      scheduleTime: string;
+    }
+  ) => {
+    // Get next batch of emails to process
+    const emailsToQueue = await this._db.select().from(individualEmailSchema).where(eq(individualEmailSchema.uploadId, uploadId)).limit(batchSize);
+
+    console.log(`📤 Queuing ${emailsToQueue.length} emails for batch ${batchId}`);
+
+    // Queue emails for processing
+    if (emailsToQueue.length > 0) {
+      for (const emailRecord of emailsToQueue) {
+        void emailQueue.add(
+          appConstant.EMAIL_SEND_QUENE,
+          {
+            email: emailRecord.email,
+            emailRecordId: emailRecord.id,
+            composedEmail: emailData.composedEmail,
+            batchId,
+            emailBatchDatabaseId: batchDbId,
+            uploadId,
+            subject: emailData.subject,
+            batchName: emailData.batchName,
+            scheduleTime: emailData.scheduleTime
+          },
+          { removeOnComplete: true }
+        );
+      }
+    }
+  };
 }
 
 export const emailBatchController = (db: DatabaseClient) => new EmailBatchController(db);

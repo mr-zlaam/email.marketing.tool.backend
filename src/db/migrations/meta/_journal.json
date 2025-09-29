@@ -15,6 +15,13 @@
       "when": 1759055110596,
       "tag": "0001_talented_pandemic",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1759107481864,
+      "tag": "0002_big_mikhail_rasputin",
+      "breakpoints": true
     }
   ]
 }
