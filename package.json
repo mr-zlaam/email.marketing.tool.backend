@@ -1,5 +1,5 @@
 {
-  "name": "dial-loom-mobile-app-server",
+  "name": "email-marketing-server",
   "module": "server.js",
   "version": "1.0.0",
   "type": "commonjs",
