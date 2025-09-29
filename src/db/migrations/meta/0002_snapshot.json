@@ -102,12 +102,8 @@
           "name": "emailBatch_currentBatchBelongsTo_uploadBulkEmailMetaData_id_fk",
           "tableFrom": "emailBatch",
           "tableTo": "uploadBulkEmailMetaData",
-          "columnsFrom": [
-            "currentBatchBelongsTo"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["currentBatchBelongsTo"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -115,12 +111,8 @@
           "name": "emailBatch_createdBy_users_username_fk",
           "tableFrom": "emailBatch",
           "tableTo": "users",
-          "columnsFrom": [
-            "createdBy"
-          ],
-          "columnsTo": [
-            "username"
-          ],
+          "columnsFrom": ["createdBy"],
+          "columnsTo": ["username"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -130,9 +122,7 @@
         "emailBatch_batchId_unique": {
           "name": "emailBatch_batchId_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "batchId"
-          ]
+          "columns": ["batchId"]
         }
       },
       "policies": {},
@@ -285,23 +275,17 @@
         "users_username_unique": {
           "name": "users_username_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "username"
-          ]
+          "columns": ["username"]
         },
         "users_email_unique": {
           "name": "users_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         },
         "users_OTP_TOKEN_unique": {
           "name": "users_OTP_TOKEN_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "OTP_TOKEN"
-          ]
+          "columns": ["OTP_TOKEN"]
         }
       },
       "policies": {},
@@ -371,12 +355,8 @@
           "name": "individualEmails_uploadId_uploadBulkEmailMetaData_id_fk",
           "tableFrom": "individualEmails",
           "tableTo": "uploadBulkEmailMetaData",
-          "columnsFrom": [
-            "uploadId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["uploadId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -386,10 +366,7 @@
         "individualEmails_email_uploadId_unique": {
           "name": "individualEmails_email_uploadId_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email",
-            "uploadId"
-          ]
+          "columns": ["email", "uploadId"]
         }
       },
       "policies": {},
@@ -515,12 +492,8 @@
           "name": "uploadBulkEmailMetaData_uploadedBy_users_username_fk",
           "tableFrom": "uploadBulkEmailMetaData",
           "tableTo": "users",
-          "columnsFrom": [
-            "uploadedBy"
-          ],
-          "columnsTo": [
-            "username"
-          ],
+          "columnsFrom": ["uploadedBy"],
+          "columnsTo": ["username"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -536,40 +509,22 @@
     "public.bulkDataStatus": {
       "name": "bulkDataStatus",
       "schema": "public",
-      "values": [
-        "paused",
-        "processing",
-        "completed",
-        "failed"
-      ]
+      "values": ["paused", "processing", "completed", "failed"]
     },
     "public.batchStatus": {
       "name": "batchStatus",
       "schema": "public",
-      "values": [
-        "pending",
-        "processing",
-        "completed",
-        "failed",
-        "paused"
-      ]
+      "values": ["pending", "processing", "completed", "failed", "paused"]
     },
     "public.currentEmailStatus": {
       "name": "currentEmailStatus",
       "schema": "public",
-      "values": [
-        "pending",
-        "completed",
-        "failed"
-      ]
+      "values": ["pending", "completed", "failed"]
     },
     "public.role": {
       "name": "role",
       "schema": "public",
-      "values": [
-        "ADMIN",
-        "USER"
-      ]
+      "values": ["ADMIN", "USER"]
     }
   },
   "schemas": {},

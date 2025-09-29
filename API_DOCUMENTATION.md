@@ -568,34 +568,34 @@ The system now uses a simplified `individualEmails` table with only essential fi
 The new database-driven approach provides several improvements for frontend integration:
 
 ### **Reliable Progress Tracking**
+
 - Use `remainingEmails` field for accurate progress bars and completion percentages
 - Formula: `Progress = (totalEmails - remainingEmails) / totalEmails * 100`
 - Real-time updates without polling inconsistencies
 
 ### **Improved Resume Functionality**
+
 - Resume operations now work reliably regardless of previous states
 - No need to track complex queue states - the database is always accurate
 - Resume button should be enabled when `remainingEmails > 0` and `status !== "processing"`
 
 ### **Simplified Error Handling**
+
 - Failed emails remain in the database and can be retried later
 - No complex status tracking - emails either exist (unprocessed) or are deleted (completed)
 - System handles duplicates automatically with database constraints
 
 ### **Dashboard Recommendations**
+
 ```javascript
 // Recommended progress calculation
-const progressPercentage = Math.round(
-  ((upload.totalEmails - upload.remainingEmails) / upload.totalEmails) * 100
-);
+const progressPercentage = Math.round(((upload.totalEmails - upload.remainingEmails) / upload.totalEmails) * 100);
 
 // Check if upload can be resumed
-const canResume = upload.remainingEmails > 0 &&
-                  upload.batches[0]?.status !== "processing";
+const canResume = upload.remainingEmails > 0 && upload.batches[0]?.status !== "processing";
 
 // Display status
-const displayStatus = upload.remainingEmails === 0 ? "Completed" :
-                     upload.batches[0]?.status || "Ready to start";
+const displayStatus = upload.remainingEmails === 0 ? "Completed" : upload.batches[0]?.status || "Ready to start";
 ```
 
 ---
