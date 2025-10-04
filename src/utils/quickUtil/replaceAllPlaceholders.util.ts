@@ -3,7 +3,7 @@ export function replaceAllPlaceholders(template: string, placeholders: Record<st
 
   for (const [key, value] of Object.entries(placeholders)) {
     const regex = new RegExp(`{{\\s*${key}\\s*}}`, "g");
-    modifiedTemplate = modifiedTemplate.replace(regex, value || "");
+    modifiedTemplate = modifiedTemplate.replace(regex, value ?? "");
   }
 
   return modifiedTemplate;

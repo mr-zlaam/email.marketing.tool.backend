@@ -44,4 +44,13 @@ export interface TMAILDATATOSEND {
   to: string;
   subject: string;
   composedEmail: string;
+  recipientName?: string;
+}
+
+export interface IEMAILTEMPLATE {
+  companyname: string;
+  year: string;
+  message: string;
+  senderGreets: string;
+  [key: string]: string;
 }
