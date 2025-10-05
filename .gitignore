@@ -167,6 +167,10 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+*.claude.md
+.claude.md
+claude.md
+CLAUDE.md
 
 # IntelliJ based IDEs
 .idea
