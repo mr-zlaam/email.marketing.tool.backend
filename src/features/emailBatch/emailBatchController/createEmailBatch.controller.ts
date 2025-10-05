@@ -97,6 +97,19 @@ class EmailBatchController {
 
       totalEmailsInUpload = actualEmailCount;
 
+      // ✅ VALIDATION: Check if batch size exceeds total emails
+      if (batchCount > actualEmailCount) {
+        // Clean up: delete uploaded file, database records, and individual emails
+        fs.unlinkSync(filePath);
+        await this._db.delete(individualEmailSchema).where(eq(individualEmailSchema.uploadId, uploadRecordId));
+        await this._db.delete(uploadBulkEmailMetaDataSchema).where(eq(uploadBulkEmailMetaDataSchema.id, uploadRecordId));
+
+        return throwError(
+          400,
+          `Batch size (${batchCount}) cannot be greater than total emails (${actualEmailCount}). Please set batch size to ${actualEmailCount} or less.`
+        );
+      }
+
       // Create batch
       const [insertBatch] = await this._db
         .insert(emailBatchSchema)
@@ -169,6 +182,14 @@ class EmailBatchController {
 
       const delayMs = parseInt(delayBetweenEmails, 10) * 1000;
       const batchCount = parseInt(emailsPerBatch, 10);
+
+      // ✅ VALIDATION: Check if batch size exceeds remaining emails
+      if (batchCount > remainingEmails) {
+        return throwError(
+          400,
+          `Batch size (${batchCount}) cannot be greater than remaining emails (${remainingEmails}). Please set batch size to ${remainingEmails} or less.`
+        );
+      }
 
       // Check if there's an existing batch
       const [existingBatch] = await this._db.select().from(emailBatchSchema).where(eq(emailBatchSchema.currentBatchBelongsTo, existingUpload.id));

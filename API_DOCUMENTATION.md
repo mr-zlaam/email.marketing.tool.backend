@@ -469,6 +469,8 @@ When a batch is created or resumed, the following process occurs:
   - Invalid file format or missing required columns
   - File validation errors (examples below)
   - No emails found in file
+  - **Batch size exceeds total emails** (new upload)
+  - **Batch size exceeds remaining emails** (resume operation)
   - Batch currently processing (cannot update while active)
   - Upload already completed
 - **HTTP 401**: Authentication token missing or invalid
@@ -503,6 +505,67 @@ When a batch is created or resumed, the following process occurs:
   "data": null
 }
 ```
+
+**Batch Size Validation Errors:**
+
+These errors occur when the requested batch size exceeds available emails. The system automatically cleans up uploaded files and database records when validation fails.
+
+**Error: Batch size exceeds total emails (New Upload)**
+
+```json
+{
+  "success": false,
+  "status": 400,
+  "message": "Batch size (100) cannot be greater than total emails (50). Please set batch size to 50 or less.",
+  "data": null
+}
+```
+
+**What happens:**
+
+- Uploaded file is deleted from server
+- Database records are cleaned up
+- User receives clear error message with maximum allowed batch size
+
+**Frontend should:**
+
+- Display error message to user
+- Suggest setting batch size to the available email count
+- Allow user to retry with corrected batch size
+
+---
+
+**Error: Batch size exceeds remaining emails (Resume Operation)**
+
+```json
+{
+  "success": false,
+  "status": 400,
+  "message": "Batch size (40) cannot be greater than remaining emails (20). Please set batch size to 20 or less.",
+  "data": null
+}
+```
+
+**What happens:**
+
+- Resume operation is rejected
+- No changes are made to the batch or upload
+- User receives clear error message with exact remaining email count
+
+**Frontend should:**
+
+- Display error message to user
+- Show the exact number of remaining emails
+- Pre-fill the batch size input with the remaining email count
+- Allow user to adjust and retry
+
+**Example Scenario:**
+
+1. Upload: 100 emails
+2. First batch (40 emails): ✅ Processed → 60 remaining
+3. Second batch (40 emails): ✅ Processed → 20 remaining
+4. Third batch (40 emails): ❌ Error - Only 20 remaining
+5. Corrected batch (20 emails): ✅ Processed → Complete
 
 ### Get Uploads with Batches
 
