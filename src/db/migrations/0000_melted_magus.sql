@@ -1,5 +1,5 @@
 CREATE TYPE "public"."bulkDataStatus" AS ENUM('paused', 'processing', 'completed', 'failed');--> statement-breakpoint
-CREATE TYPE "public"."batchStatus" AS ENUM('pending', 'processing', 'completed', 'failed');--> statement-breakpoint
+CREATE TYPE "public"."batchStatus" AS ENUM('pending', 'processing', 'completed', 'failed', 'paused');--> statement-breakpoint
 CREATE TYPE "public"."currentEmailStatus" AS ENUM('pending', 'completed', 'failed');--> statement-breakpoint
 CREATE TYPE "public"."role" AS ENUM('ADMIN', 'USER');--> statement-breakpoint
 CREATE TABLE "emailBatch" (
@@ -19,17 +19,6 @@ CREATE TABLE "emailBatch" (
 	CONSTRAINT "emailBatch_batchId_unique" UNIQUE("batchId")
 );
 --> statement-breakpoint
-CREATE TABLE "emails" (
-	"id" serial PRIMARY KEY NOT NULL,
-	"batchId" integer NOT NULL,
-	"email" varchar(255) NOT NULL,
-	"status" "currentEmailStatus" DEFAULT 'pending',
-	"failedReason" varchar(500) DEFAULT '',
-	"attemptCount" integer DEFAULT 0,
-	"lastAttemptAt" timestamp (3) DEFAULT now(),
-	"createdAt" timestamp (3) DEFAULT now() NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE "users" (
 	"uid" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"username" varchar(50) NOT NULL,
@@ -45,6 +34,14 @@ CREATE TABLE "users" (
 	CONSTRAINT "users_username_unique" UNIQUE("username"),
 	CONSTRAINT "users_email_unique" UNIQUE("email"),
 	CONSTRAINT "users_OTP_TOKEN_unique" UNIQUE("OTP_TOKEN")
+);
+--> statement-breakpoint
+CREATE TABLE "individualEmails" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"name" varchar(255),
+	"email" varchar(255) NOT NULL,
+	"uploadId" integer NOT NULL,
+	"createdAt" timestamp (3) DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "rate_limiter_flexible" (
@@ -67,10 +64,14 @@ CREATE TABLE "uploadBulkEmailMetaData" (
 --> statement-breakpoint
 ALTER TABLE "emailBatch" ADD CONSTRAINT "emailBatch_currentBatchBelongsTo_uploadBulkEmailMetaData_id_fk" FOREIGN KEY ("currentBatchBelongsTo") REFERENCES "public"."uploadBulkEmailMetaData"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "emailBatch" ADD CONSTRAINT "emailBatch_createdBy_users_username_fk" FOREIGN KEY ("createdBy") REFERENCES "public"."users"("username") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "emails" ADD CONSTRAINT "emails_batchId_emailBatch_id_fk" FOREIGN KEY ("batchId") REFERENCES "public"."emailBatch"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "individualEmails" ADD CONSTRAINT "individualEmails_uploadId_uploadBulkEmailMetaData_id_fk" FOREIGN KEY ("uploadId") REFERENCES "public"."uploadBulkEmailMetaData"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "uploadBulkEmailMetaData" ADD CONSTRAINT "uploadBulkEmailMetaData_uploadedBy_users_username_fk" FOREIGN KEY ("uploadedBy") REFERENCES "public"."users"("username") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "user_role_idx" ON "users" USING btree ("role");--> statement-breakpoint
 CREATE INDEX "user_createdAt_idx" ON "users" USING btree ("createdAt");--> statement-breakpoint
 CREATE INDEX "user_username_idx" ON "users" USING btree ("username");--> statement-breakpoint
 CREATE INDEX "user_isVerified_idx" ON "users" USING btree ("isVerified");--> statement-breakpoint
+CREATE INDEX "individual_email_upload_id_index" ON "individualEmails" USING btree ("uploadId");--> statement-breakpoint
+CREATE INDEX "individual_email_email_index" ON "individualEmails" USING btree ("email");--> statement-breakpoint
+CREATE INDEX "individual_email_email_upload_id_index" ON "individualEmails" USING btree ("email","uploadId");--> statement-breakpoint
+CREATE UNIQUE INDEX "uniqueEmailPerUpload" ON "individualEmails" USING btree ("email","uploadId");--> statement-breakpoint
 CREATE INDEX "key_idx" ON "rate_limiter_flexible" USING btree ("key");

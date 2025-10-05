@@ -4,10 +4,15 @@ import { asyncHandler } from "../../../utils/globalUtil/asyncHandler.util";
 import { throwError } from "../../../utils/globalUtil/throwError.util";
 import { userRepo } from "../../users/userRepos/user.repo";
 import { emailBatchSchema } from "../../../db/schemas/emailBatchSchema";
+import { individualEmailSchema } from "../../../db/schemas/individualEmailSchema";
 import { emailQueue } from "../../../quenes/emailQuene.config";
 import { httpResponse } from "../../../utils/globalUtil/apiResponse.util";
 import reshttp from "reshttp";
 import { eq } from "drizzle-orm";
+import IORedis from "ioredis";
+import { redisConfig } from "../../../config/connections.config";
+
+const redis = new IORedis(redisConfig);
 
 class DeleteBatchController {
   private readonly _db: DatabaseClient;
@@ -24,6 +29,8 @@ class DeleteBatchController {
       return throwError(400, "Batch ID is required");
     }
 
+    console.log(`🗑️ Attempting to delete batch: ${batchId}`);
+
     // Find the existing batch
     const [existingBatch] = await this._db.select().from(emailBatchSchema).where(eq(emailBatchSchema.batchId, batchId));
 
@@ -31,34 +38,52 @@ class DeleteBatchController {
       return throwError(404, "Email batch not found");
     }
 
-    // Check if user owns this batch
-    if (existingBatch.createdBy !== user.username) {
+    // Check if user owns this batch (skip check for admins if needed)
+    if (existingBatch.createdBy !== user.username && user.role !== "ADMIN") {
       return throwError(403, "You don't have permission to delete this batch");
     }
 
-    // Check if batch has remaining jobs in queue
-    const waiting = await emailQueue.getWaiting();
-    const active = await emailQueue.getActive();
-    const totalRemainingJobs = waiting.length + active.length;
+    console.log(`✅ Batch found: ${existingBatch.batchName}, Status: ${existingBatch.status}`);
 
-    if (totalRemainingJobs > 0) {
-      return throwError(
-        400,
-        `Cannot delete batch with ${totalRemainingJobs} remaining jobs in queue. Please wait for jobs to complete or manually remove them first.`
-      );
+    // 1️⃣ Remove all jobs from BullMQ queue for this batch
+    const jobs = await emailQueue.getJobs(["waiting", "active", "delayed"]);
+    const batchJobs = jobs.filter((job) => job.data.batchId === batchId);
+
+    console.log(`📋 Found ${batchJobs.length} jobs in queue for batch ${batchId}`);
+
+    for (const job of batchJobs) {
+      await job.remove();
     }
 
-    // Check if batch is currently being processed
-    if (existingBatch.status === "pending" && active.length > 0) {
-      return throwError(400, "Cannot delete batch while jobs are actively being processed");
+    console.log(`✅ Removed ${batchJobs.length} jobs from BullMQ queue`);
+
+    // 2️⃣ Clean up Redis batch configuration
+    const redisKeys = [`batch:${batchId}`, `upload:${existingBatch.currentBatchBelongsTo}:activeBatch`];
+
+    for (const key of redisKeys) {
+      await redis.del(key);
     }
 
-    // Delete the batch from database
+    console.log(`✅ Cleaned up Redis keys for batch ${batchId}`);
+
+    // 3️⃣ Delete remaining emails from individual emails table for this upload
+    const deletedEmails = await this._db
+      .delete(individualEmailSchema)
+      .where(eq(individualEmailSchema.uploadId, existingBatch.currentBatchBelongsTo))
+      .returning();
+
+    console.log(`✅ Deleted ${deletedEmails.length} remaining emails from database`);
+
+    // 4️⃣ Delete the batch from database
     await this._db.delete(emailBatchSchema).where(eq(emailBatchSchema.batchId, batchId));
+
+    console.log(`✅ Batch ${batchId} deleted successfully from database`);
 
     httpResponse(req, res, reshttp.okCode, "Email batch deleted successfully", {
       deletedBatchId: batchId,
       batchName: existingBatch.batchName,
+      removedJobs: batchJobs.length,
+      removedEmails: deletedEmails.length,
       deletedAt: new Date().toISOString()
     });
   });

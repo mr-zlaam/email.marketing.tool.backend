@@ -101,3 +101,5 @@ export const emailWorker = new Worker<TEMAILJOB>(
   },
   { connection, concurrency: 1 }
 );
+
+console.log("✅ BullMQ Email Worker started and ready to process jobs");

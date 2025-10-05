@@ -7,79 +7,180 @@
       content="width=device-width, initial-scale=1.0" />
     <title>{{companyname}}</title>
     <style>
-      body {
-        font-family: Arial, sans-serif;
-        background-color: #f4f4f4;
+      * {
         margin: 0;
         padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+        margin: 0;
+        padding: 40px 20px;
+        line-height: 1.6;
       }
 
       .container {
         max-width: 600px;
-        margin: 20px auto;
+        margin: 0 auto;
         background-color: #ffffff;
-        padding: 20px;
-        border-radius: 8px;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow:
+          0 20px 60px rgba(0, 0, 0, 0.08),
+          0 8px 16px rgba(0, 0, 0, 0.04);
       }
 
       .header {
         text-align: center;
-        padding: 20px 0;
-        border-bottom: 1px solid #eeeeee;
-        background-color: #28282b;
-        border-radius: 8px 8px 0 0;
+        padding: 48px 40px 40px;
+        background-color: #ffffff;
+        border-bottom: 1px solid #f0f0f0;
       }
 
       .header img {
-        max-width: 100px;
-        margin-bottom: 10px;
+        max-width: 120px;
+        height: auto;
+        margin-bottom: 20px;
+        filter: brightness(0.95);
       }
 
       .header h1 {
-        font-size: 24px;
+        font-size: 28px;
+        font-weight: 600;
         margin: 0;
-        color: #ffffff;
+        color: #1a1a1a;
+        letter-spacing: -0.5px;
       }
 
       .content {
-        padding: 20px 0;
-        color: #333333;
-        line-height: 1.6;
+        padding: 40px;
+        color: #2c3e50;
+        background-color: #ffffff;
+      }
+
+      .content p {
+        margin-bottom: 20px;
+        font-size: 16px;
+        color: #2c3e50;
+      }
+
+      .content > p:first-child {
+        font-size: 18px;
+        font-weight: 500;
+        color: #1a1a1a;
+        margin-bottom: 24px;
+      }
+
+      .content > div {
+        margin: 24px 0;
+        font-size: 16px;
+        line-height: 1.8;
+        color: #374151;
       }
 
       .content h1 {
-        font-size: 1.5rem;
-        color: blue;
-        font-weight: bold;
+        font-size: 24px;
+        color: #2563eb;
+        font-weight: 600;
+        margin: 24px 0 16px;
+        line-height: 1.3;
       }
 
       .content h2 {
         font-size: 20px;
-        color: #6a0dad;
+        color: #7c3aed;
+        font-weight: 600;
+        margin: 20px 0 12px;
+        line-height: 1.4;
+      }
+
+      .content b,
+      .content strong {
+        color: #1a1a1a;
+        font-weight: 600;
+      }
+
+      .signature {
+        margin-top: 32px;
+        padding-top: 24px;
+        border-top: 1px solid #f0f0f0;
+      }
+
+      .signature p {
+        margin-bottom: 8px;
+        color: #6b7280;
+      }
+
+      .signature b {
+        color: #1a1a1a;
+        font-size: 17px;
       }
 
       .button {
         text-align: center;
-        margin: 20px 0;
+        margin: 32px 0;
       }
 
       .button a {
         text-decoration: none;
-        background-color: #6a0dad;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: #ffffff;
-        padding: 12px 24px;
-        border-radius: 4px;
+        padding: 14px 32px;
+        border-radius: 8px;
         font-size: 16px;
+        font-weight: 500;
         display: inline-block;
+        transition:
+          transform 0.2s,
+          box-shadow 0.2s;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.25);
+      }
+
+      .button a:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.35);
       }
 
       .footer {
-        font-size: 12px;
-        color: #777777;
+        font-size: 13px;
+        color: #9ca3af;
         text-align: center;
-        padding-top: 20px;
-        border-top: 1px solid #eeeeee;
+        padding: 32px 40px;
+        background-color: #fafbfc;
+        border-top: 1px solid #f0f0f0;
+      }
+
+      .footer p {
+        margin: 0;
+        line-height: 1.6;
+      }
+
+      @media only screen and (max-width: 600px) {
+        body {
+          padding: 20px 10px;
+        }
+
+        .container {
+          border-radius: 12px;
+        }
+
+        .header {
+          padding: 32px 24px 24px;
+        }
+
+        .header h1 {
+          font-size: 24px;
+        }
+
+        .content {
+          padding: 28px 24px;
+        }
+
+        .footer {
+          padding: 24px 24px;
+        }
       }
     </style>
   </head>
@@ -96,17 +197,17 @@
 
       <!-- Content -->
       <div class="content">
-        <p>{{senderIntro}}</p>
+        <p>{{senderGreets}}</p>
         <div>{{message}}</div>
-        <p>Best Regards,</p>
-        <b>{{companyname}}</b>
+        <div class="signature">
+          <p>Best Regards,</p>
+          <b>{{companyname}}</b>
+        </div>
       </div>
-
-      <!-- Additional Information -->
 
       <!-- Footer -->
       <div class="footer">
-        <p>&copy; 2025 {{companyname}}. All rights reserved.</p>
+        <p>&copy; {{year}} {{companyname}}. All rights reserved.</p>
       </div>
     </div>
   </body>

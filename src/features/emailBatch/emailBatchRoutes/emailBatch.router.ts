@@ -4,6 +4,7 @@ import { database } from "../../../db/db";
 import { emailBatchValidationZ } from "../emailBatchValidation/emailBatch.validation";
 import { emailBatchController } from "../emailBatchController/createEmailBatch.controller";
 import { deleteBatchController } from "../emailBatchController/deleteBatch.controller";
+import { adminDeleteCampaignController } from "../emailBatchController/adminDeleteCampaign.controller";
 import { getUploadsWithBatchesController } from "../emailBatchController/getUploadsWithBatches.controller";
 import { emailBatchController as updateEmailBatchController } from "../emailBatchController/updateEmailBatch.controller";
 import { authMiddleware } from "../../../middlewares/auth.middleware";
@@ -37,3 +38,12 @@ emailBatchRouter.route("/pauseBatch/:batchId").patch(authMiddleware(database.db)
 
 // ** Resume Email Batch
 emailBatchRouter.route("/resumeBatch/:batchId").patch(authMiddleware(database.db).checkToken, updateEmailBatchController(database.db).resumeBatch);
+
+// ** Admin Delete Campaign (Upload + Batch + Individual Emails + Redis)
+emailBatchRouter
+  .route("/admin/deleteCampaign/:uploadId")
+  .delete(
+    authMiddleware(database.db).checkToken,
+    authMiddleware(database.db).checkIfUserIsAdmin,
+    adminDeleteCampaignController(database.db).deleteCampaign
+  );

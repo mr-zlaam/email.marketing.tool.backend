@@ -284,12 +284,81 @@ For resuming or updating an existing batch from previously uploaded email lists,
 - `emailsPerBatch`: String representing number (1-100)
 - `scheduleTime`: Currently supports "NOW" for immediate processing
 
-**File Requirements:**
+**File Format Requirements (STRICT):**
 
-- **Supported Formats**: CSV (.csv), Excel (.xlsx, .xls)
-- **Maximum Size**: 10 MB per file
-- **Required Structure**: Must contain a column named "email" with valid email addresses
-- **Optional Columns**: firstName, lastName, or other custom fields
+The system enforces a **strict file format standard**. Files must meet these requirements or they will be rejected:
+
+**📋 Required Column (Mandatory):**
+
+- **Email Column**: File MUST have at least ONE of these columns (case-insensitive):
+  - `email`, `emails`, `mail`, `mails`, `contactmail`
+  - Examples: `Email`, `EMAIL`, `Emails`, `Mail`, `ContactMail`
+
+**👤 Optional Column (Recommended):**
+
+- **Name Column**: File CAN have ONE of these columns for personalized greetings (case-insensitive):
+  - `name`, `names`, `firstname`, `firstnames`, `lastname`, `lastnames`
+  - Examples: `Name`, `FirstName`, `FIRSTNAME`, `LastName`
+
+**📁 Supported File Formats:**
+
+- CSV (.csv)
+- Excel (.xlsx, .xls)
+- TSV (.tsv, .txt)
+- JSON (.json)
+
+**📏 File Size:**
+
+- Maximum: 10 MB per file
+
+**✅ Valid File Examples:**
+
+**CSV Format (Minimal - Email Only):**
+
+```csv
+email
+john@example.com
+jane@example.com
+bob@example.com
+```
+
+**CSV Format (Recommended - Email + Name):**
+
+```csv
+email,name
+john@example.com,John Doe
+jane@example.com,Jane Smith
+bob@example.com,Bob Johnson
+```
+
+**Excel Format:**
+| Email | FirstName |
+|-------|-----------|
+| john@example.com | John |
+| jane@example.com | Jane |
+
+**JSON Format:**
+
+```json
+[
+  { "email": "john@example.com", "name": "John" },
+  { "email": "jane@example.com", "name": "Jane" }
+]
+```
+
+**❌ Invalid Files (Will Be Rejected):**
+
+- Files without email column
+- Files with incorrect column names (e.g., `e-mail`, `email_address`, `contact`)
+- Empty files
+- Files with only headers and no data
+
+**⚠️ Important Notes:**
+
+- Column names are **case-insensitive** (EMAIL = Email = email)
+- **Whitespace is trimmed** from column names
+- If no name column is found, emails will use generic greeting: "Hi"
+- If name column is found, emails will use personalized greeting: "Hi John,"
 
 **What Happens Internally:**
 
@@ -297,13 +366,23 @@ When a batch is created or resumed, the following process occurs:
 
 **For New File Upload:**
 
-1. All email addresses are extracted from the uploaded file
-2. Each email is inserted into the `individualEmails` table (only email address, uploadId, and timestamp)
+1. The system extracts data from the uploaded file using column-based detection:
+   - Searches for email addresses in designated email columns (case-insensitive matching)
+   - Searches for recipient names in designated name columns (case-insensitive matching)
+   - Each email is paired with its corresponding name from the same row
+2. Each email record is inserted into the `individualEmails` table with:
+   - `email`: The extracted email address
+   - `name`: The recipient's name (if found in name columns, otherwise NULL)
+   - `uploadId`: Reference to the upload record
+   - `createdAt`: Timestamp
 3. Duplicate emails within the same upload are automatically ignored using `ON CONFLICT DO NOTHING`
 4. The system counts actual inserted emails after deduplication
 5. A batch record is created with the specified settings
-6. The first batch of emails (up to `emailsPerBatch` limit) is queued in BullMQ
-7. Background workers process emails with the configured delay, then permanently delete them from the database
+6. The first batch of emails (up to `emailsPerBatch` limit) is queued in BullMQ with name data
+7. Background workers process emails with the configured delay:
+   - Personalizes email greetings with recipient names (e.g., "Hi John,")
+   - Falls back to "Hi" if no name is available
+   - Permanently deletes email records from database after successful send
 8. After processing the batch size limit, the batch automatically pauses
 
 **For Existing Upload (Resume):**
@@ -386,10 +465,44 @@ When a batch is created or resumed, the following process occurs:
 
 **Error Responses:**
 
-- **HTTP 400**: Invalid file format, no emails found in file, validation errors, batch currently processing (cannot update while active), or upload already completed
+- **HTTP 400**:
+  - Invalid file format or missing required columns
+  - File validation errors (examples below)
+  - No emails found in file
+  - Batch currently processing (cannot update while active)
+  - Upload already completed
 - **HTTP 401**: Authentication token missing or invalid
 - **HTTP 404**: Upload ID not found (when using existing upload option)
 - **HTTP 500**: Internal server error during batch creation or resume
+
+**Common File Validation Error Messages:**
+
+```json
+{
+  "success": false,
+  "status": 400,
+  "message": "Missing required EMAIL column. File must have one of these columns: email, emails, mail, mails, contactmail",
+  "data": null
+}
+```
+
+```json
+{
+  "success": false,
+  "status": 400,
+  "message": "Excel file is empty or has no sheets",
+  "data": null
+}
+```
+
+```json
+{
+  "success": false,
+  "status": 400,
+  "message": "JSON file must contain an array of objects",
+  "data": null
+}
+```
 
 ### Get Uploads with Batches
 
@@ -398,6 +511,11 @@ When a batch is created or resumed, the following process occurs:
 **Description:** Retrieves upload records along with their associated batch (single batch per upload). This is the primary endpoint for dashboard displays and campaign monitoring. It supports both paginated listing of all uploads and detailed view of specific uploads. Note that each upload will have exactly one batch associated with it.
 
 **Authentication Required:** Yes
+
+**Authorization Rules:**
+
+- **Admin Users**: Can view ALL uploads and batches from all users in the system
+- **Regular Users**: Can ONLY view uploads and batches that they created (filtered by `uploadedBy`)
 
 **Headers:**
 
@@ -418,8 +536,8 @@ Authorization: Bearer JWT_TOKEN
 
 **Example URLs:**
 
-- `/api/v1/emailBatch/getUploadsWithBatches?page=1&pageSize=10`
-- `/api/v1/emailBatch/getUploadsWithBatches?uploadId=123`
+- `/api/v1/emailBatch/getUploadsWithBatches?page=1&pageSize=10` (Admin sees all, users see only theirs)
+- `/api/v1/emailBatch/getUploadsWithBatches?uploadId=123` (403 error if user doesn't own this upload)
 
 **Success Response - Paginated List (HTTP 200):**
 
@@ -520,19 +638,21 @@ Authorization: Bearer JWT_TOKEN
 
 **Individual Email Database Structure:**
 
-The system now uses a simplified `individualEmails` table with only essential fields:
+The system uses an optimized `individualEmails` table with essential fields:
 
 - `id`: Auto-incrementing primary key
-- `email`: Email address (VARCHAR 255)
+- `email`: Email address (VARCHAR 255, NOT NULL)
+- `name`: Recipient name (VARCHAR 255, NULLABLE) - for personalized greetings
 - `uploadId`: Foreign key reference to the upload record
 - `createdAt`: Timestamp when email was added to database
 
 **Key Design Decisions:**
 
 - **No Status Field**: Emails are either in the database (unprocessed) or deleted (processed)
-- **No User Data**: Only email addresses are stored, no firstName/lastName fields
+- **Personalization Support**: Names are stored to enable personalized email greetings like "Hi John,"
 - **Unique Constraint**: `(email, uploadId)` prevents duplicates within same upload
 - **Cascading Delete**: When upload is deleted, all associated emails are automatically removed
+- **Column-Based Extraction**: System automatically detects emails and names from various column naming conventions (case-insensitive)
 
 **Batch Fields:**
 
@@ -558,8 +678,148 @@ The system now uses a simplified `individualEmails` table with only essential fi
 
 - **HTTP 400**: Invalid pagination parameters or invalid uploadId format
 - **HTTP 401**: Authentication token missing or invalid
+- **HTTP 403**: User trying to access an upload that doesn't belong to them (non-admin users only)
 - **HTTP 404**: Specific upload not found (when uploadId is specified)
 - **HTTP 500**: Internal server error
+
+### Admin Delete Campaign
+
+**Endpoint:** `DELETE /api/v1/emailBatch/admin/deleteCampaign/:uploadId`
+
+**Description:** Allows admin users to completely delete a campaign including all associated data. This endpoint performs comprehensive cleanup of Redis cache, BullMQ queue jobs, individual email records, batch records, and upload metadata. This is a destructive operation that cannot be undone.
+
+**Authentication Required:** Yes (Admin role only)
+
+**Authorization:** Only users with `ADMIN` role can access this endpoint
+
+**Headers:**
+
+```
+Authorization: Bearer ADMIN_JWT_TOKEN
+```
+
+**URL Parameters:**
+
+- `uploadId`: The ID of the upload/campaign to delete (numeric)
+
+**Example URL:**
+
+- `/api/v1/emailBatch/admin/deleteCampaign/123`
+
+**What Gets Deleted:**
+
+1. **Redis Data**: All batch-related keys (e.g., `batch:{batchId}` with processed counts)
+2. **Queue Jobs**: All waiting and delayed jobs for the batch from BullMQ (active jobs will complete naturally)
+3. **Individual Emails**: All email records from `individualEmails` table for this upload
+4. **Batch Record**: The batch configuration and metadata
+5. **Upload Metadata**: The upload record itself
+
+**Success Response (HTTP 200):**
+
+```json
+{
+  "success": true,
+  "status": 200,
+  "message": "Campaign deleted successfully",
+  "data": {
+    "deletedCampaign": {
+      "uploadId": 123,
+      "uploadedFileName": "customer_list.csv",
+      "uploadedBy": "john_doe",
+      "batchId": "550e8400-e29b-41d4-a716-446655440000",
+      "batchName": "Summer Campaign",
+      "deletedIndividualEmails": 950,
+      "removedQueuedJobs": "Cleaned from queue",
+      "redisCleanup": "Completed"
+    },
+    "deletedAt": "2025-01-15T14:30:00.000Z"
+  }
+}
+```
+
+**Response Field Explanations:**
+
+- `uploadId`: The ID of the deleted upload/campaign
+- `uploadedFileName`: Original filename that was uploaded
+- `uploadedBy`: Username of the user who created the campaign
+- `batchId`: UUID of the associated batch
+- `batchName`: Name of the batch campaign
+- `deletedIndividualEmails`: Number of email records deleted from database
+- `removedQueuedJobs`: Status of queue cleanup
+- `redisCleanup`: Status of Redis data cleanup
+- `deletedAt`: Timestamp when the deletion occurred
+
+**Important Notes:**
+
+- **Active Jobs**: If there are active jobs being processed, they cannot be safely removed and will complete naturally. The controller will log a warning about these.
+- **Cascading Delete**: The system uses database cascading, so deleting the upload automatically removes related records, but the controller performs explicit deletions for clarity and logging.
+- **No Undo**: This operation is irreversible. All campaign data will be permanently deleted.
+- **Admin Only**: Non-admin users will receive a 403 Forbidden error.
+
+**Error Responses:**
+
+- **HTTP 400**: Invalid uploadId format (not a number)
+- **HTTP 401**: Authentication token missing or invalid
+- **HTTP 403**: User does not have admin privileges
+- **HTTP 404**: Campaign (upload) not found
+- **HTTP 500**: Internal server error during deletion process
+
+**Console Logging:**
+
+The controller provides detailed console logging for debugging:
+
+- Redis cleanup confirmation
+- Number of jobs removed from queue
+- Warning about active jobs
+- Email records deletion count
+- Final confirmation of campaign deletion
+
+---
+
+## Email Personalization
+
+The system now supports automatic email personalization using recipient names extracted from uploaded files.
+
+### How Personalization Works
+
+1. **File Upload**: When uploading CSV/Excel files, the system automatically searches for name data in columns named (case-insensitive):
+   - `name`, `names`, `firstname`, `firstnames`, `lastname`, `lastnames`
+
+2. **Data Pairing**: Each email address is paired with the corresponding name from the same row in the file
+
+3. **Template Variables**: The email template uses the `{{senderGreets}}` variable which is automatically populated:
+   - With name: "Hi John," (if name is found in the file)
+   - Without name: "Hi" (fallback if no name is available)
+
+4. **Email Content**: When composing emails in the `composedEmail` field, the greeting is handled automatically - you don't need to include it in your content
+
+### Example File Structures
+
+**CSV Format:**
+
+```csv
+Email,FirstName
+john@example.com,John
+jane@example.com,Jane
+bob@example.com,Bob
+```
+
+**Excel Format:**
+| EMAIL | Name |
+|-------|------|
+| john@example.com | John Doe |
+| jane@example.com | Jane Smith |
+
+**JSON Format:**
+
+```json
+[
+  { "email": "john@example.com", "firstName": "John" },
+  { "email": "jane@example.com", "name": "Jane" }
+]
+```
+
+All column name variations are supported (EMAIL, Email, email, FirstName, firstname, etc.)
 
 ---
 
@@ -697,4 +957,79 @@ The API currently provides five core endpoints for essential functionality:
    - Authentication: Required
    - Use case: Dashboard display and campaign tracking
 
+6. **DELETE /api/v1/emailBatch/admin/deleteCampaign/:uploadId**
+   - Purpose: Complete campaign deletion with Redis and queue cleanup
+   - Authentication: Required (Admin role only)
+   - Use case: Administrative campaign management and cleanup
+
 These endpoints provide complete functionality for user management and email campaign creation and monitoring. The system is designed to be scalable, secure, and efficient for bulk email marketing operations.
+
+---
+
+## Recent Updates & Changes
+
+### Version 2.0 - Email Personalization & Access Control (January 2025)
+
+**New Features:**
+
+1. **Email Personalization**
+   - Automatic extraction of recipient names from uploaded files
+   - Case-insensitive column detection for both emails and names
+   - Personalized greetings in email templates (e.g., "Hi John,")
+   - Support for multiple name column formats: `name`, `firstName`, `lastName`, etc.
+
+2. **Role-Based Access Control**
+   - Admin users can view all uploads and batches system-wide
+   - Regular users are restricted to viewing only their own uploads and batches
+   - 403 Forbidden error when non-admin users attempt to access others' data
+   - Pagination results are automatically filtered based on user role
+
+3. **Enhanced File Processing**
+   - Support for JSON and TSV file formats
+   - Column-based extraction replaces pattern matching
+   - All column names are normalized to lowercase for reliable matching
+   - Each email is paired with corresponding name from the same row
+
+4. **Admin Campaign Management**
+   - New admin-only endpoint for complete campaign deletion
+   - Comprehensive cleanup: Redis cache, BullMQ jobs, database records
+   - Removes waiting/delayed jobs from queue automatically
+   - Detailed logging for debugging and audit trails
+
+5. **Strict File Format Validation**
+   - Enforces standard file format before processing
+   - Required: Email column (email, emails, mail, mails, contactmail)
+   - Optional: Name column (name, firstname, lastname, etc.)
+   - Validates file structure before extraction
+   - Clear error messages for invalid formats
+
+**Updated API Behavior:**
+
+- `GET /api/v1/emailBatch/getUploadsWithBatches`:
+  - Now includes role-based filtering
+  - Returns 403 error for unauthorized access attempts
+  - Pagination counts reflect user's accessible data only
+
+- `POST /api/v1/emailBatch/createEmailBatch`:
+  - Now extracts and stores recipient names
+  - Names are automatically included in personalized email greetings
+  - `individualEmails` table includes new `name` field (nullable)
+
+- `DELETE /api/v1/emailBatch/admin/deleteCampaign/:uploadId`:
+  - Admin-only endpoint for complete campaign deletion
+  - Clears Redis batch data (processed counts, flags)
+  - Removes queued jobs from BullMQ
+  - Deletes all email records, batch, and upload metadata
+
+**Database Schema Updates:**
+
+- `individualEmails` table now includes:
+  - `name` VARCHAR(255) NULLABLE - for recipient personalization
+
+**Frontend Integration Notes:**
+
+- No changes required for existing API calls
+- Personalization happens automatically server-side
+- Users should include name columns in uploaded files for best experience
+- Admin dashboards should display data from all users
+- Regular user dashboards automatically filter to show only their data

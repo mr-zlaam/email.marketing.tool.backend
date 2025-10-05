@@ -5,21 +5,30 @@ import { parse } from "fast-csv";
 import { Worker } from "worker_threads";
 import { isEmail } from "../../utils/globalUtil/isEmail.util";
 
+interface ExtractedData {
+  email: string;
+  name?: string;
+}
+
 interface WorkerData {
-  cells: string[];
+  rows: Array<Record<string, unknown>>;
+  emailColumns: string[];
+  nameColumns: string[];
 }
 
 export class EmailExtractor {
   private chunkSize = 5000;
+  private readonly emailColumns = ["email", "emails", "mail", "mails", "contactmail"];
+  private readonly nameColumns = ["name", "names", "firstname", "firstnames", "lastname", "lastnames"];
 
   constructor(chunkSize?: number) {
     if (chunkSize) this.chunkSize = chunkSize;
   }
 
-  private async runWorker(chunk: string[]): Promise<string[]> {
+  private async runWorker(chunk: Array<Record<string, unknown>>): Promise<ExtractedData[]> {
     return new Promise((resolve, reject) => {
       const worker = new Worker(path.resolve(__dirname, "./emailExtractor.worker.ts"), {
-        workerData: { cells: chunk } as WorkerData
+        workerData: { rows: chunk, emailColumns: this.emailColumns, nameColumns: this.nameColumns } as WorkerData
       });
 
       worker.on("message", resolve);
@@ -30,78 +39,99 @@ export class EmailExtractor {
     });
   }
 
-  private chunkArray(array: string[]): string[][] {
-    const chunks: string[][] = [];
+  private chunkArray<T>(array: T[]): T[][] {
+    const chunks: T[][] = [];
     for (let i = 0; i < array.length; i += this.chunkSize) {
       chunks.push(array.slice(i, i + this.chunkSize));
     }
     return chunks;
   }
 
-  private flattenAndValidate(cells: string[]): string[] {
-    return Array.from(new Set(cells.map((e) => e.trim().toLowerCase()))).filter((email) => isEmail(email));
+  private flattenAndValidate(data: ExtractedData[]): ExtractedData[] {
+    const uniqueMap = new Map<string, ExtractedData>();
+
+    for (const item of data) {
+      const normalizedEmail = item.email.trim().toLowerCase();
+      if (isEmail(normalizedEmail) && !uniqueMap.has(normalizedEmail)) {
+        uniqueMap.set(normalizedEmail, { email: normalizedEmail, name: item.name });
+      }
+    }
+
+    return Array.from(uniqueMap.values());
   }
 
-  async fromExcel(filePath: string): Promise<string[]> {
+  async fromExcel(filePath: string): Promise<ExtractedData[]> {
     const workbook = XLSX.readFile(filePath);
-    const allCells: string[] = [];
+    const allRows: Array<Record<string, unknown>> = [];
 
     workbook.SheetNames.forEach((sheetName) => {
       const sheet = workbook.Sheets[sheetName];
-      const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-      for (const row of rows) {
-        for (const cell of row) {
-          if (typeof cell === "string") allCells.push(cell);
+      const jsonData: Array<Record<string, unknown>> = XLSX.utils.sheet_to_json(sheet);
+
+      // Normalize headers to lowercase for matching
+      const normalizedRows = jsonData.map((row) => {
+        const normalizedRow: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(row)) {
+          normalizedRow[key.toLowerCase().trim()] = value;
         }
-      }
+        return normalizedRow;
+      });
+
+      allRows.push(...normalizedRows);
     });
 
-    const chunks = this.chunkArray(allCells);
+    const chunks = this.chunkArray(allRows);
     const results = await Promise.all(chunks.map((c) => this.runWorker(c)));
     return this.flattenAndValidate(results.flat());
   }
 
-  async fromCSV(filePath: string, delimiter = ","): Promise<string[]> {
-    const allCells: string[] = [];
+  async fromCSV(filePath: string, delimiter = ","): Promise<ExtractedData[]> {
+    const allRows: Array<Record<string, unknown>> = [];
 
     await new Promise<void>((resolve, reject) => {
       fs.createReadStream(filePath)
-        .pipe(parse({ headers: false, trim: true, delimiter }))
-        .on("data", (row: unknown[]) => {
-          for (const cell of row) {
-            if (typeof cell === "string") allCells.push(cell);
+        .pipe(parse({ headers: true, trim: true, delimiter }))
+        .on("data", (row: Record<string, unknown>) => {
+          // Normalize headers to lowercase for matching
+          const normalizedRow: Record<string, unknown> = {};
+          for (const [key, value] of Object.entries(row)) {
+            normalizedRow[key.toLowerCase().trim()] = value;
           }
+          allRows.push(normalizedRow);
         })
         .on("end", resolve)
         .on("error", reject);
     });
 
-    const chunks = this.chunkArray(allCells);
+    const chunks = this.chunkArray(allRows);
     const results = await Promise.all(chunks.map((c) => this.runWorker(c)));
     return this.flattenAndValidate(results.flat());
   }
 
-  async fromJSON(filePath: string): Promise<string[]> {
+  async fromJSON(filePath: string): Promise<ExtractedData[]> {
     const raw = fs.readFileSync(filePath, "utf-8");
     const parsed: unknown = JSON.parse(raw);
-    const allCells: string[] = [];
+    const allRows: Array<Record<string, unknown>> = [];
 
     if (Array.isArray(parsed)) {
       parsed.forEach((item) => {
-        if (typeof item === "string") allCells.push(item);
-        else if (item && typeof item === "object" && "email" in item) {
-          const emailValue = (item as Record<string, unknown>).email;
-          if (typeof emailValue === "string") allCells.push(emailValue);
+        if (item && typeof item === "object") {
+          // Normalize headers to lowercase for matching
+          const normalizedRow: Record<string, unknown> = {};
+          for (const [key, value] of Object.entries(item as Record<string, unknown>)) {
+            normalizedRow[key.toLowerCase().trim()] = value;
+          }
+          allRows.push(normalizedRow);
         }
       });
     }
 
-    const chunks = this.chunkArray(allCells);
+    const chunks = this.chunkArray(allRows);
     const results = await Promise.all(chunks.map((c) => this.runWorker(c)));
     return this.flattenAndValidate(results.flat());
   }
 
-  async fromFile(filePath: string): Promise<string[]> {
+  async fromFile(filePath: string): Promise<ExtractedData[]> {
     const ext = path.extname(filePath).toLowerCase();
     if (ext === ".csv") return this.fromCSV(filePath);
     if (ext === ".tsv" || ext === ".txt") return this.fromCSV(filePath, "\t");

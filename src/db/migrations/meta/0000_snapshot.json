@@ -1,5 +1,5 @@
 {
-  "id": "54c992c7-1c1e-46d6-9eb4-3ebc744821cc",
+  "id": "8b35020e-e47f-4a31-ba6c-70c641078069",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -125,83 +125,6 @@
           "columns": ["batchId"]
         }
       },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.emails": {
-      "name": "emails",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "batchId": {
-          "name": "batchId",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "email": {
-          "name": "email",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "currentEmailStatus",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": false,
-          "default": "'pending'"
-        },
-        "failedReason": {
-          "name": "failedReason",
-          "type": "varchar(500)",
-          "primaryKey": false,
-          "notNull": false,
-          "default": "''"
-        },
-        "attemptCount": {
-          "name": "attemptCount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "default": 0
-        },
-        "lastAttemptAt": {
-          "name": "lastAttemptAt",
-          "type": "timestamp (3)",
-          "primaryKey": false,
-          "notNull": false,
-          "default": "now()"
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp (3)",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "emails_batchId_emailBatch_id_fk": {
-          "name": "emails_batchId_emailBatch_id_fk",
-          "tableFrom": "emails",
-          "tableTo": "emailBatch",
-          "columnsFrom": ["batchId"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -369,6 +292,133 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.individualEmails": {
+      "name": "individualEmails",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "uploadId": {
+          "name": "uploadId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp (3)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "individual_email_upload_id_index": {
+          "name": "individual_email_upload_id_index",
+          "columns": [
+            {
+              "expression": "uploadId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "individual_email_email_index": {
+          "name": "individual_email_email_index",
+          "columns": [
+            {
+              "expression": "email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "individual_email_email_upload_id_index": {
+          "name": "individual_email_email_upload_id_index",
+          "columns": [
+            {
+              "expression": "email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "uploadId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "uniqueEmailPerUpload": {
+          "name": "uniqueEmailPerUpload",
+          "columns": [
+            {
+              "expression": "email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "uploadId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "individualEmails_uploadId_uploadBulkEmailMetaData_id_fk": {
+          "name": "individualEmails_uploadId_uploadBulkEmailMetaData_id_fk",
+          "tableFrom": "individualEmails",
+          "tableTo": "uploadBulkEmailMetaData",
+          "columnsFrom": ["uploadId"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.rate_limiter_flexible": {
       "name": "rate_limiter_flexible",
       "schema": "",
@@ -510,7 +560,7 @@
     "public.batchStatus": {
       "name": "batchStatus",
       "schema": "public",
-      "values": ["pending", "processing", "completed", "failed"]
+      "values": ["pending", "processing", "completed", "failed", "paused"]
     },
     "public.currentEmailStatus": {
       "name": "currentEmailStatus",

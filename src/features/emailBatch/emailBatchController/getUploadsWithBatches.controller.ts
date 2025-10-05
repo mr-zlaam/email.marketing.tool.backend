@@ -58,6 +58,9 @@ class GetUploadsWithBatchesController {
       return throwError(400, "Invalid pagination parameters. Page must be >= 1, pageSize between 1-100");
     }
 
+    const isAdmin = req.userFromToken?.role === "ADMIN";
+    const currentUsername = req.userFromToken?.uid;
+
     // If specific uploadId requested, get single upload with batches
     if (uploadId) {
       const uploadIdNum = parseInt(uploadId, 10);
@@ -69,6 +72,11 @@ class GetUploadsWithBatchesController {
 
       if (!upload) {
         return throwError(404, "Upload not found");
+      }
+
+      // Check authorization: non-admin users can only access their own uploads
+      if (!isAdmin && upload.uploadedBy !== currentUsername) {
+        return throwError(403, "You don't have permission to access this upload");
       }
 
       // Get the single batch for this specific upload (single batch per upload system)
@@ -108,19 +116,25 @@ class GetUploadsWithBatchesController {
     }
 
     // Get paginated uploads with their batches
-    const [totalUploadsResult] = await this._db.select({ count: count() }).from(uploadBulkEmailMetaDataSchema);
+    // For non-admin users, filter by uploadedBy
+    const whereCondition = isAdmin ? undefined : eq(uploadBulkEmailMetaDataSchema.uploadedBy, currentUsername || "");
+
+    const [totalUploadsResult] = await this._db.select({ count: count() }).from(uploadBulkEmailMetaDataSchema).$dynamic().where(whereCondition);
 
     const totalRecord = totalUploadsResult.count;
     const totalPage = Math.ceil(totalRecord / limit);
     const hasNextPage = currentPage < totalPage;
     const hasPreviousPage = currentPage > 1;
 
-    const uploads = await this._db
+    const uploadsQuery = this._db
       .select()
       .from(uploadBulkEmailMetaDataSchema)
       .orderBy(desc(uploadBulkEmailMetaDataSchema.createdAt))
       .limit(limit)
-      .offset(offset);
+      .offset(offset)
+      .$dynamic();
+
+    const uploads = whereCondition ? await uploadsQuery.where(whereCondition) : await uploadsQuery;
 
     const uploadsWithBatches: IUploadWithBatches[] = [];
 

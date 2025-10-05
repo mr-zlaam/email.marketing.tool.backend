@@ -1,1 +1,0 @@
-ALTER TYPE "public"."batchStatus" ADD VALUE 'paused';

@@ -32,6 +32,7 @@ export interface TEMAILJOB {
   emailsPerBatch?: string;
   scheduleTime?: string;
   uploadId?: number;
+  recipientName?: string;
 }
 
 export interface IRESUMEBATCHBODY {

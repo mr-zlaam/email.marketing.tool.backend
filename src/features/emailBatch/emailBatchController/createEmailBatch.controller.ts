@@ -3,14 +3,16 @@ import type { _Request } from "../../../middlewares/auth.middleware";
 import type { IEMAILBATCHBODY } from "../../../types/types";
 import { asyncHandler } from "../../../utils/globalUtil/asyncHandler.util";
 import { EmailExtractor } from "../../utils/emailsExtractor.util";
+import { fileFormatValidator } from "../../utils/fileFormatValidator.util";
 import { throwError } from "../../../utils/globalUtil/throwError.util";
 import { userRepo } from "../../users/userRepos/user.repo";
 import { emailBatchSchema } from "../../../db/schemas/emailBatchSchema";
+import { httpResponse } from "../../../utils/globalUtil/apiResponse.util";
 import { emailQueue } from "../../../quenes/emailQuene.config";
 import appConstant from "../../../constants/app.constant";
-import { httpResponse } from "../../../utils/globalUtil/apiResponse.util";
 import reshttp from "reshttp";
 import fs from "node:fs";
+import path from "node:path";
 import { uploadBulkEmailMetaDataSchema } from "../../../db/schemas/uploadBulkEmailMetaData";
 import { individualEmailSchema } from "../../../db/schemas/individualEmailSchema";
 import { eq, sql } from "drizzle-orm";
@@ -32,14 +34,29 @@ class EmailBatchController {
     // ---------- 1️⃣ Handle file upload ----------
     const filePath = req.file?.path || "";
     if (filePath) {
+      const fileName = filePath.split("/").pop() || "";
+      const fileExtension = path.extname(fileName).toLowerCase();
+
+      console.log(`Processing uploaded file: ${fileName}`);
+
+      // Validate file format
+      const validationResult = await fileFormatValidator.validateFileFormat(filePath, fileExtension);
+
+      if (!validationResult.isValid) {
+        fs.unlinkSync(filePath); // Clean up uploaded file
+        return throwError(400, validationResult.error || "Invalid file format");
+      }
+
+      console.log(`File validation passed. Found columns: ${JSON.stringify(validationResult.foundColumns)}`);
+
       const extractor = new EmailExtractor();
       const emailData = await extractor.fromFile(filePath);
 
       if (emailData.length === 0) {
+        fs.unlinkSync(filePath); // Clean up uploaded file
         return throwError(400, "No valid emails found in the uploaded file");
       }
 
-      const fileName = filePath.split("/").pop() || "";
       const delayMs = parseInt(delayBetweenEmails, 10) * 1000;
       const batchCount = parseInt(emailsPerBatch, 10);
 
@@ -58,8 +75,9 @@ class EmailBatchController {
       uploadRecordId = insertMetaData.id;
 
       // Insert individual emails into database with ON CONFLICT DO NOTHING for duplicates
-      const emailRecords = emailData.map((email) => ({
-        email: typeof email === "string" ? email : (email as { email: string }).email,
+      const emailRecords = emailData.map((data) => ({
+        email: data.email,
+        name: data.name || null,
         uploadId: uploadRecordId
       }));
 
@@ -183,7 +201,7 @@ class EmailBatchController {
           .where(eq(emailBatchSchema.id, existingBatch.id))
           .returning();
 
-        console.log(`✅ Batch ${existingBatch.batchId} updated successfully`);
+        console.log(`Batch ${existingBatch.batchId} updated successfully`);
 
         // Queue next batch of emails
         await this.queueNextBatch(uploadRecordId, existingBatch.batchId, existingBatch.id, batchCount, {
@@ -214,7 +232,7 @@ class EmailBatchController {
           })
           .returning();
 
-        console.log(`✅ New batch created with ID: ${insertBatch.id}, batchId: ${insertBatch.batchId}`);
+        console.log(`New batch created with ID: ${insertBatch.id}, batchId: ${insertBatch.batchId}`);
 
         // Queue first batch of emails
         await this.queueNextBatch(uploadRecordId, insertBatch.batchId, insertBatch.id, batchCount, {
@@ -228,7 +246,7 @@ class EmailBatchController {
         operationType = "created";
       }
 
-      console.log(`🚀 Batch ${operationType} completed successfully for upload ${uploadId}`);
+      console.log(`Batch ${operationType} completed successfully for upload ${uploadId}`);
 
       return httpResponse(req, res, reshttp.createdCode, `Batch ${operationType} under existing upload`, {
         batch: batchResult,
