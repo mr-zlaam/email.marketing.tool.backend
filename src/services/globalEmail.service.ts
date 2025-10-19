@@ -20,15 +20,15 @@ const transporter = nodemailer.createTransport({
     pass: envConfig.RESEND_API_KEY
   }
 });
-const defaultGreeting = "Hi";
-export async function gloabalMailMessage({ to, composedEmail, subject, recipientName }: TMAILDATATOSEND) {
+// const defaultGreeting = "Hi";
+export async function gloabalMailMessage({ to, composedEmail, subject }: TMAILDATATOSEND) {
   const templatePath = path.resolve(__dirname, "../../templates/globalEmail.template.html");
   let htmlTemplate = fs.readFileSync(templatePath, "utf8");
   const placeholders: IEMAILTEMPLATE = {
     companyname: appConstant.COMPANY_NAME,
     message: composedEmail || "",
     year: year.toString(),
-    senderGreets: recipientName ? `Hi ${recipientName},` : defaultGreeting
+    senderGreets: ""
   };
   htmlTemplate = replaceAllPlaceholders(htmlTemplate, placeholders as unknown as Record<string, string>);
   const randomStr = generateRandomStrings(10);
